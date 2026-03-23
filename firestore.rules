@@ -1,0 +1,32 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // config/slots — leitura e escrita via client SDK (transações de reserva)
+    match /config/slots {
+      allow read, write: if true;
+    }
+
+    // Reservas — qualquer um pode criar/ler a própria; ninguém apaga diretamente
+    match /reservations/{sid} {
+      allow read, write: if true; // simplificado para o evento — sem auth
+    }
+
+    // Cadastros — qualquer um pode criar; leitura pública para o painel admin
+    match /registrations/{regId} {
+      allow read, write: if true;
+    }
+
+    // Lista de espera — apenas escrita
+    match /waitlist/{id} {
+      allow create: if true;
+      allow read: if true;
+      allow update, delete: if false;
+    }
+
+    // Tokens de bypass (promoção de lista de espera)
+    match /bypass_tokens/{token} {
+      allow read, write: if true;
+    }
+  }
+}

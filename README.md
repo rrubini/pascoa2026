@@ -1,70 +1,100 @@
-# Getting Started with Create React App
+# Páscoa Alpha 2026
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Sistema de cadastro para a Ação Social de Páscoa do Ministério Alpha.
 
-## Available Scripts
+**Produção:** https://pascoa2026-b8b7a.web.app
+**Admin:** https://pascoa2026-b8b7a.web.app/#alpha-admin
 
-In the project directory, you can run:
+---
 
-### `npm start`
+## Setup inicial
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 1. Pré-requisitos
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```bash
+node >= 18
+npm install -g firebase-tools
+firebase login
+```
 
-### `npm test`
+### 2. Instalar dependências
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+npm install
+```
 
-### `npm run build`
+### 3. Variáveis de ambiente
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Copie `.env.example` para `.env` e preencha com as credenciais do Firebase Console:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+cp .env.example .env
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+REACT_APP_FIREBASE_API_KEY=
+REACT_APP_FIREBASE_AUTH_DOMAIN=
+REACT_APP_FIREBASE_PROJECT_ID=
+REACT_APP_FIREBASE_STORAGE_BUCKET=
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
+REACT_APP_FIREBASE_APP_ID=
+```
 
-### `npm run eject`
+### 4. Inicializar documento de vagas no Firestore
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+No Firebase Console, crie manualmente o documento `config/slots`:
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+```json
+{ "available": 100, "nextRegNumber": 1 }
+```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+---
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Rodar localmente
 
-## Learn More
+```bash
+npm start
+```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+Abre em http://localhost:3000
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
 
-### Code Splitting
+## Deploy
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+> O build exige mais memória do que o padrão do Node.
 
-### Analyzing the Bundle Size
+```bash
+set NODE_OPTIONS=--max-old-space-size=4096 && npm run build && firebase deploy --project pascoa2026-b8b7a
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+Só regras do Firestore:
 
-### Making a Progressive Web App
+```bash
+firebase deploy --only firestore:rules --project pascoa2026-b8b7a
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+---
 
-### Advanced Configuration
+## Estrutura Firestore
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+| Coleção | Descrição |
+|---|---|
+| `config/slots` | Vagas disponíveis e contador de inscrições |
+| `reservations/{sid}` | Reservas temporárias (expiram em 5 min) |
+| `registrations/{regId}` | Cadastros confirmados |
+| `waitlist/{id}` | Lista de espera |
+| `bypass_tokens/{token}` | Links de acesso para promovidos da espera |
 
-### Deployment
+---
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Configurações relevantes (`src/App.js`)
 
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+```js
+CFG.MAX_SLOTS        // total de vagas (padrão: 100)
+CFG.TIMER_SEC        // tempo de reserva em segundos (padrão: 300)
+CFG.ADMIN_PWD        // senha do painel admin
+CFG.ADMIN_HASH       // hash da rota admin (padrão: #alpha-admin)
+CFG.EVENT_DATE_LABEL // data exibida no app e no PDF
+CFG.OPEN_AT          // data/hora de abertura das inscrições
+```
