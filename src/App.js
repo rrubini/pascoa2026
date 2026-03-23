@@ -1178,20 +1178,22 @@ export default function App() {
   },[]);
   useEffect(()=>{
     (async()=>{
-      await ensureSlots();
-      if(window.location.pathname===CFG.ADMIN_PATH){setScreen("admin");return;}
-      const existing=await getSessionReg();
-      if(existing){setReg(existing);setScreen("confirmation");return;}
-      if(Date.now()<CFG.OPEN_AT.getTime()){setScreen("pre-open");return;}
-      const params=new URLSearchParams(window.location.search);
-      const t=params.get("t");
-      if(t){
-        const snap=await getDoc(doc(db,"bypass_tokens",t));
-        if(snap.exists()&&!snap.data().used&&new Date(snap.data().expiresAt)>new Date()){
-          setBypassToken(t); setScreen("select"); return;
+      try {
+        if(window.location.pathname===CFG.ADMIN_PATH){setScreen("admin");return;}
+        await ensureSlots();
+        const existing=await getSessionReg();
+        if(existing){setReg(existing);setScreen("confirmation");return;}
+        if(Date.now()<CFG.OPEN_AT.getTime()){setScreen("pre-open");return;}
+        const params=new URLSearchParams(window.location.search);
+        const t=params.get("t");
+        if(t){
+          const snap=await getDoc(doc(db,"bypass_tokens",t));
+          if(snap.exists()&&!snap.data().used&&new Date(snap.data().expiresAt)>new Date()){
+            setBypassToken(t); setScreen("select"); return;
+          }
         }
-      }
-      setScreen("home");
+        setScreen("home");
+      } catch(e) { console.error("App init failed:",e); setScreen("home"); }
     })();
   },[]);
   useEffect(()=>{if(["home","select"].includes(screen)&&available===0&&!bypassToken)setScreen("waitlist");},[available,screen,bypassToken]);
