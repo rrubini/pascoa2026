@@ -12,7 +12,7 @@ const CFG = {
   RENEW_SEC: 300,
   MAX_RENEWALS: 1,
   ADMIN_PWD: "pascoa2026",
-  ADMIN_HASH: "#alpha-admin",
+  ADMIN_PATH: "/alpha-admin",
   OPEN_AT: new Date(Date.now() - 1000),
   EVENT_DATE_LABEL: "04 de abril de 2026",
   EVENT_DAY_LABEL: "Sábado",
@@ -1179,7 +1179,7 @@ export default function App() {
   useEffect(()=>{
     (async()=>{
       await ensureSlots();
-      if(window.location.hash===CFG.ADMIN_HASH){setScreen("admin");return;}
+      if(window.location.pathname===CFG.ADMIN_PATH){setScreen("admin");return;}
       const existing=await getSessionReg();
       if(existing){setReg(existing);setScreen("confirmation");return;}
       if(Date.now()<CFG.OPEN_AT.getTime()){setScreen("pre-open");return;}

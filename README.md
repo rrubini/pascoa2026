@@ -3,7 +3,7 @@
 Sistema de cadastro para a Ação Social de Páscoa do Ministério Alpha.
 
 **Produção:** https://pascoa2026-b8b7a.web.app
-**Admin:** https://pascoa2026-b8b7a.web.app/#alpha-admin
+**Admin:** https://pascoa2026-b8b7a.web.app/alpha-admin
 
 ---
 
@@ -94,7 +94,7 @@ firebase deploy --only firestore:rules --project pascoa2026-b8b7a
 CFG.MAX_SLOTS        // total de vagas (padrão: 100)
 CFG.TIMER_SEC        // tempo de reserva em segundos (padrão: 300)
 CFG.ADMIN_PWD        // senha do painel admin
-CFG.ADMIN_HASH       // hash da rota admin (padrão: #alpha-admin)
+CFG.ADMIN_PATH       // path da rota admin (padrão: /alpha-admin)
 CFG.EVENT_DATE_LABEL // data exibida no app e no PDF
 CFG.OPEN_AT          // data/hora de abertura das inscrições
 ```
