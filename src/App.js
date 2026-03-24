@@ -417,6 +417,68 @@ function HomeScreen({ onStart, onRecover }) {
   );
 }
 
+// ── CONSENT ───────────────────────────────────────────────────────────────────
+function ConsentScreen({ onAccept, onBack }) {
+  const [lgpd,setLgpd]=useState(false);
+  const [image,setImage]=useState(false);
+  const CheckRow=({checked,onChange,children})=>(
+    <label style={{display:"flex",gap:12,alignItems:"flex-start",cursor:"pointer",marginTop:14,padding:"12px 14px",background:checked?T.greenL:T.bg,borderRadius:10,border:`1.5px solid ${checked?T.green:T.border}`,transition:"background .2s,border-color .2s"}}>
+      <input type="checkbox" checked={checked} onChange={e=>onChange(e.target.checked)} style={{width:18,height:18,marginTop:2,accentColor:T.green,flexShrink:0,cursor:"pointer"}}/>
+      <span style={{fontSize:13,color:T.text,fontWeight:checked?700:500,lineHeight:1.6}}>{children}</span>
+    </label>
+  );
+  return (
+    <div style={{minHeight:"100vh",background:T.bg}}>
+      <Styles />
+      <div style={{background:T.blue,height:6}}/>
+      <div style={{maxWidth:460,margin:"0 auto",padding:"0 16px 32px"}}>
+        <PageHeader />
+
+        {/* LGPD */}
+        <Card style={{marginBottom:14}}>
+          <h2 style={{fontSize:14,fontWeight:800,color:T.blue,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>🔒 Política de Privacidade · LGPD</h2>
+          <div style={{maxHeight:200,overflowY:"auto",fontSize:12,color:T.muted,lineHeight:1.8,fontWeight:500,paddingRight:4}}>
+            <p>O <strong style={{color:T.text}}>Ministério Alpha</strong> é o controlador dos dados coletados neste cadastro, que incluem: nome completo, CPF, telefone, data de nascimento, bairro e dados das crianças inscritas.</p>
+            <p style={{marginTop:8}}><strong style={{color:T.text}}>Finalidades do uso:</strong></p>
+            <ul style={{paddingLeft:16,margin:"4px 0"}}>
+              <li>Realização do check-in e controle de acesso no evento <strong>Páscoa 2026</strong> (04/04/2026)</li>
+              <li>Verificação de identidade na entrada do evento</li>
+              <li>Comunicações futuras do Ministério Alpha sobre atividades e eventos da instituição, dentro dos limites da lei</li>
+            </ul>
+            <p style={{marginTop:8}}><strong style={{color:T.text}}>Base legal:</strong> Consentimento do titular (Art. 7º, I, Lei nº 13.709/2018 – LGPD) e execução de procedimento preliminar a pedido do titular (Art. 7º, V).</p>
+            <p style={{marginTop:8}}><strong style={{color:T.text}}>Seus direitos:</strong> Você pode solicitar acesso, correção, portabilidade ou exclusão dos seus dados a qualquer momento pelo e-mail <strong>contato@ministerioalpha.com.br</strong>.</p>
+            <p style={{marginTop:8}}><strong style={{color:T.text}}>Retenção:</strong> Os dados serão mantidos pelo tempo necessário às finalidades descritas e conforme as exigências legais aplicáveis.</p>
+          </div>
+          <CheckRow checked={lgpd} onChange={setLgpd}>
+            Li e concordo com o uso dos meus dados conforme descrito acima <span style={{color:T.red,fontWeight:800}}>(obrigatório)</span>
+          </CheckRow>
+        </Card>
+
+        {/* Uso de imagem */}
+        <Card style={{marginBottom:14}}>
+          <h2 style={{fontSize:14,fontWeight:800,color:T.blue,marginBottom:10,textTransform:"uppercase",letterSpacing:.5}}>📷 Autorização de Uso de Imagem e Voz</h2>
+          <div style={{maxHeight:220,overflowY:"auto",fontSize:12,color:T.muted,lineHeight:1.8,fontWeight:500,paddingRight:4}}>
+            <p>Na qualidade de responsável legal pelo(s) menor(es) a ser(em) cadastrado(s), você poderá <strong style={{color:T.text}}>autorizar, de forma gratuita e por tempo indeterminado</strong>, o uso de imagem e voz — sua e do(s) menor(es) — captadas durante o evento:</p>
+            <p style={{marginTop:8,fontWeight:700,color:T.text}}>Páscoa 2026 · Ministério Alpha<br/><span style={{fontWeight:500,color:T.muted}}>04 de abril de 2026 · Av. Engenheiro Souza Filho, 3555</span></p>
+            <p style={{marginTop:8}}><strong style={{color:T.text}}>1 · Objeto:</strong> Fotografias e/ou vídeos produzidos durante o evento.</p>
+            <p style={{marginTop:6}}><strong style={{color:T.text}}>2 · Finalidade:</strong> Divulgação institucional e promoção das atividades do Ministério Alpha, <em>sem caráter comercial</em>, nos meios: website oficial; redes sociais (Instagram, Facebook, YouTube etc.); materiais impressos (boletins, cartazes, jornais); apresentações e relatórios institucionais.</p>
+            <p style={{marginTop:6}}><strong style={{color:T.text}}>3 · Abrangência:</strong> Todo território nacional e exterior, em todas as modalidades, sem limite de tempo ou número de utilizações.</p>
+            <p style={{marginTop:6}}><strong style={{color:T.text}}>4 · Declarações:</strong> (a) Autorização concedida de livre e espontânea vontade. (b) O Ministério Alpha se compromete a não utilizar as imagens de forma que gere constrangimento, denigra a honra ou viole a intimidade e privacidade do menor. (c) Esta autorização não gera qualquer contraprestação financeira.</p>
+          </div>
+          <CheckRow checked={image} onChange={setImage}>
+            Autorizo o uso de imagem e voz conforme descrito acima
+          </CheckRow>
+        </Card>
+
+        <Btn onClick={()=>onAccept(image)} disabled={!lgpd} style={{width:"100%",fontSize:15,padding:"16px 20px",borderRadius:12,opacity:lgpd?1:.5}}>
+          Aceitar e continuar →
+        </Btn>
+        <Btn variant="ghost" onClick={onBack} style={{width:"100%",marginTop:10,fontSize:14}}>← Voltar</Btn>
+      </div>
+    </div>
+  );
+}
+
 // ── SELECT COUNT ──────────────────────────────────────────────────────────────
 function SelectCountScreen({ available, onSelect, onBack, bypass }) {
   return (
@@ -460,7 +522,7 @@ function SelectCountScreen({ available, onSelect, onBack, bypass }) {
 }
 
 // ── FORM ──────────────────────────────────────────────────────────────────────
-function FormScreen({ sid, initialExpiresAt, initialCount, onSuccess, onExpired, onRecover, onBack }) {
+function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, onExpired, onRecover, onBack }) {
   const [expiresAt, setExpiresAt] = useState(initialExpiresAt);
   const [timeLeft, setTimeLeft]   = useState(CFG.TIMER_SEC);
   const [renewals, setRenewals]   = useState(0);
@@ -539,7 +601,7 @@ function FormScreen({ sid, initialExpiresAt, initialCount, onSuccess, onExpired,
   };
   const handleSubmit=async()=>{
     if(!validate()) return; setLoad(true); setSubErr("");
-    const res=await confirmRegistration(sid,{adult,children});
+    const res=await confirmRegistration(sid,{adult,children,consents});
     setLoad(false);
     if(res.ok) onSuccess(res.reg); else setSubErr(res.reason);
   };
@@ -1304,6 +1366,7 @@ export default function App() {
   const [expiresAt,setExp]=useState(null);
   const [reg,setReg]=useState(null);
   const [bypassToken,setBypassToken]=useState(null);
+  const [consents,setConsents]=useState(null);
   useEffect(()=>{
     const unsub=onSnapshot(slotsRef,snap=>{setAvail(snap.data()?.available??0);setRegClosed(snap.data()?.registrationClosed??false);});
     return unsub;
@@ -1321,7 +1384,7 @@ export default function App() {
         if(t){
           const snap=await getDoc(doc(db,"bypass_tokens",t));
           if(snap.exists()&&!snap.data().used&&new Date(snap.data().expiresAt)>new Date()){
-            setBypassToken(t); setScreen("select"); return;
+            setBypassToken(t); setScreen("consent"); return;
           }
         }
         setScreen("home");
@@ -1341,8 +1404,9 @@ export default function App() {
   if(screen==="admin") return <AdminScreen onBack={goHome}/>;
   if(screen==="confirmation") return <ConfirmationScreen reg={reg} onClear={()=>{clearSession();setReg(null);goHome();}}/>;
   if(screen==="recover") return <RecoverScreen onFound={r=>{setReg(r);setScreen("confirmation");}} onBack={goHome}/>;
-  if(screen==="home") return <HomeScreen onStart={()=>setScreen("select")} onRecover={()=>setScreen("recover")}/>;
-  if(screen==="select") return <SelectCountScreen available={available} onSelect={handleSelect} onBack={goHome} bypass={!!bypassToken}/>;
-  if(screen==="form") return <FormScreen sid={sid} initialExpiresAt={expiresAt} initialCount={count} onSuccess={r=>{setReg(r);setScreen("confirmation");}} onExpired={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("home");}} onRecover={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("recover");}} onBack={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("select");}}/>;
+  if(screen==="home") return <HomeScreen onStart={()=>setScreen("consent")} onRecover={()=>setScreen("recover")}/>;
+  if(screen==="consent") return <ConsentScreen onAccept={(imageConsent)=>{setConsents({lgpd:true,image:imageConsent,at:new Date().toISOString()});setScreen("select");}} onBack={goHome}/>;
+  if(screen==="select") return <SelectCountScreen available={available} onSelect={handleSelect} onBack={()=>setScreen("consent")} bypass={!!bypassToken}/>;
+  if(screen==="form") return <FormScreen sid={sid} initialExpiresAt={expiresAt} initialCount={count} consents={consents} onSuccess={r=>{setReg(r);setScreen("confirmation");}} onExpired={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("home");}} onRecover={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("recover");}} onBack={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("consent");}}/>;
   return null;
 }
