@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { db } from "./firebase";
 import {
-  doc, getDoc, setDoc, updateDoc, addDoc,
+  doc, getDoc, setDoc, updateDoc, addDoc, deleteDoc,
   collection, getDocs, query, where,
   runTransaction, onSnapshot,
 } from "firebase/firestore";
@@ -12,6 +12,7 @@ const CFG = {
   RENEW_SEC: 300,
   MAX_RENEWALS: 1,
   ADMIN_PWD: "pascoa2026",
+  SUPERADMIN_PWD: "superalpha2026",
   ADMIN_PATH: "/alpha-admin",
   OPEN_AT: new Date(Date.now() - 1000),
   EVENT_DATE_LABEL: "04 de abril de 2026",
@@ -82,6 +83,25 @@ async function cancelReservation(sid) {
       t.delete(resRef);
     });
   } catch {}
+}
+async function deleteRegistrationDoc(regId,count) {
+  await runTransaction(db,async(t)=>{
+    const sSnap=await t.get(slotsRef);
+    t.delete(doc(db,"registrations",regId));
+    t.update(slotsRef,{available:(sSnap.data()?.available??0)+count});
+  });
+}
+async function deleteWaitlistDoc(id) {
+  await deleteDoc(doc(db,"waitlist",id));
+}
+async function adjustAvailableSlots(delta) {
+  await runTransaction(db,async(t)=>{
+    const snap=await t.get(slotsRef);
+    t.update(slotsRef,{available:Math.max(0,(snap.data()?.available??0)+delta)});
+  });
+}
+async function setRegistrationClosed(closed) {
+  await updateDoc(slotsRef,{registrationClosed:closed});
 }
 async function confirmRegistration(sid,data) {
   const cpfQ=query(collection(db,"registrations"),where("adult.cpf","==",data.adult.cpf));
@@ -172,8 +192,8 @@ async function getAllStats() {
   const regs=regsSnap.docs.map(d=>d.data());
   const confirmed=regs.reduce((s,r)=>s+r.children.length,0);
   const reserved=resSnap.docs.filter(d=>new Date(d.data().expiresAt).getTime()>now).reduce((s,d)=>s+d.data().count,0);
-  const waitlistItems=waitSnap.docs.map(d=>d.data()).sort((a,b)=>new Date(a.at)-new Date(b.at));
-  return {confirmed,reserved,available:sSnap.data()?.available??0,waitlist:waitSnap.size,regs,waitlistItems};
+  const waitlistItems=waitSnap.docs.map(d=>({...d.data(),_id:d.id})).sort((a,b)=>new Date(a.at)-new Date(b.at));
+  return {confirmed,reserved,available:sSnap.data()?.available??0,registrationClosed:sSnap.data()?.registrationClosed??false,waitlist:waitSnap.size,regs,waitlistItems};
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -336,7 +356,7 @@ function Modal({ show, icon, title, body, actions }) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────────────────────
-function HomeScreen({ available, onStart, onRecover }) {
+function HomeScreen({ available, regClosed, onStart, onRecover }) {
   const steps = [
     ["🎟️","Escolha quantas crianças vai inscrever (1 ou 2)"],
     ["📝","Preencha o cadastro com seus dados e os da(s) criança(s)"],
@@ -399,9 +419,16 @@ function HomeScreen({ available, onStart, onRecover }) {
             </div>
           ))}
         </Card>
-        <Btn onClick={onStart} style={{ width:"100%", fontSize:15, padding:"16px 20px", borderRadius:12 }}>
-          Quero me cadastrar →
-        </Btn>
+        {regClosed?(
+          <div style={{background:"#FFECEC",border:`2px solid ${T.red}`,borderRadius:14,padding:"16px 20px",marginBottom:14,textAlign:"center"}}>
+            <p style={{fontWeight:800,color:T.red,fontSize:16,marginBottom:4}}>🔴 Cadastro encerrado</p>
+            <p style={{fontSize:13,color:T.muted,fontWeight:500}}>O período de inscrições foi encerrado.</p>
+          </div>
+        ):(
+          <Btn onClick={onStart} style={{ width:"100%", fontSize:15, padding:"16px 20px", borderRadius:12 }}>
+            Quero me cadastrar →
+          </Btn>
+        )}
         <Btn variant="ghost" onClick={onRecover} style={{ width:"100%", marginTop:10, fontSize:14 }}>
           Já me cadastrei — recuperar comprovante
         </Btn>
@@ -966,17 +993,22 @@ function CameraScanner({ onScan, onClose }) {
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 function AdminScreen({ onBack }) {
-  const [authed,setAuthed]=useState(false); const [pwd,setPwd]=useState(""); const [pwdErr,setPwdErr]=useState("");
-  const [stats,setStats]=useState({confirmed:0,reserved:0,available:CFG.MAX_SLOTS,waitlist:0,regs:[],waitlistItems:[]});
+  const [role,setRole]=useState(null); // null | "admin" | "superadmin"
+  const [pwd,setPwd]=useState(""); const [pwdErr,setPwdErr]=useState("");
+  const [stats,setStats]=useState({confirmed:0,reserved:0,available:CFG.MAX_SLOTS,registrationClosed:false,waitlist:0,regs:[],waitlistItems:[]});
   const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all");
   const [ciSearch,setCiSearch]=useState("");
   const [scanRes,setScanRes]=useState(null);
   const [tab,setTab]=useState("checkin"); const [scanning,setScanning]=useState(false);
   const [cancelCIModal,setCancelCIModal]=useState({show:false,regId:null,name:""});
-  const [promoteModal,setPromoteModal]=useState({show:false,link:""});
+  const [deleteRegModal,setDeleteRegModal]=useState({show:false,regId:null,name:"",count:0});
+  const [deleteWaitModal,setDeleteWaitModal]=useState({show:false,id:null,name:""});
+  const [clearWaitModal,setClearWaitModal]=useState(false);
+  const [promoteModal,setPromoteModal]=useState({show:false,link:"",name:""});
   const [promoteLoading,setPromoteLoading]=useState(null);
+  const [slotLoading,setSlotLoading]=useState(false);
   const refresh=async()=>setStats(await getAllStats());
-  useEffect(()=>{if(authed)refresh();},[authed]);
+  useEffect(()=>{if(role)refresh();},[role]);
   const handleCI=async(regId)=>{await doCheckIn(regId);refresh();if(scanRes?.reg?.regId===regId)setScanRes(r=>({...r,reg:{...r.reg,checkedIn:true,checkedInAt:new Date().toISOString()}}));};
   const handleCancelCI=async()=>{await doCancelCheckIn(cancelCIModal.regId);refresh();setCancelCIModal({show:false,regId:null,name:""});if(scanRes?.reg?.regId===cancelCIModal.regId)setScanRes(r=>({...r,reg:{...r.reg,checkedIn:false,checkedInAt:null}}));};
   const handlePromote=async(item)=>{
@@ -986,6 +1018,10 @@ function AdminScreen({ onBack }) {
     setPromoteLoading(null);
     setPromoteModal({show:true,link,name:item.name});
   };
+  const handleDeleteReg=async()=>{await deleteRegistrationDoc(deleteRegModal.regId,deleteRegModal.count);refresh();setDeleteRegModal({show:false,regId:null,name:"",count:0});};
+  const handleDeleteWait=async()=>{await deleteWaitlistDoc(deleteWaitModal.id);refresh();setDeleteWaitModal({show:false,id:null,name:""});};
+  const handleClearWait=async()=>{await Promise.all(stats.waitlistItems.map(w=>deleteWaitlistDoc(w._id)));refresh();setClearWaitModal(false);};
+  const handleAdjustSlots=async(delta)=>{setSlotLoading(true);await adjustAvailableSlots(delta);await refresh();setSlotLoading(false);};
   const scanCode=(id)=>{const reg=stats.regs.find(r=>r.regId===id);setScanRes(reg?{found:true,reg}:{found:false});};
   const normStr=s=>s.replace(/\D/g,"");
   const matchReg=(r,q)=>{
@@ -1001,14 +1037,14 @@ function AdminScreen({ onBack }) {
   });
   const ciActive=ciSearch.trim().length>=3;
   const ciFiltered=ciActive?stats.regs.filter(r=>matchReg(r,ciSearch.trim())):[];
-  if(!authed) return (
+  if(!role) return (
     <div style={{minHeight:"100vh",background:T.bg}}><Styles />
       <div style={{background:T.blue,height:6}}/>
       <div style={{maxWidth:400,margin:"0 auto",padding:"0 16px"}}><PageHeader />
         <Card>
           <h2 style={{fontSize:16,fontWeight:800,color:T.blue,marginBottom:16,textTransform:"uppercase",letterSpacing:.5}}>Acesso administrativo</h2>
-          <Field label="Senha" error={pwdErr}><TInput type="password" value={pwd} onChange={e=>setPwd(e.target.value)} placeholder="••••••••"/></Field>
-          <Btn onClick={()=>{if(pwd===CFG.ADMIN_PWD)setAuthed(true);else setPwdErr("Senha incorreta");}} style={{width:"100%",marginBottom:10}}>Entrar</Btn>
+          <Field label="Senha" error={pwdErr}><TInput type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){if(pwd===CFG.ADMIN_PWD)setRole("admin");else if(pwd===CFG.SUPERADMIN_PWD)setRole("superadmin");else setPwdErr("Senha incorreta");}}} placeholder="••••••••"/></Field>
+          <Btn onClick={()=>{if(pwd===CFG.ADMIN_PWD)setRole("admin");else if(pwd===CFG.SUPERADMIN_PWD)setRole("superadmin");else setPwdErr("Senha incorreta");}} style={{width:"100%",marginBottom:10}}>Entrar</Btn>
           <Btn variant="ghost" onClick={onBack} style={{width:"100%",fontSize:14}}>← Voltar</Btn>
         </Card>
       </div>
@@ -1018,7 +1054,10 @@ function AdminScreen({ onBack }) {
   return (
     <div style={{minHeight:"100vh",background:T.bg,paddingBottom:32}}><Styles />
       <div style={{background:T.blue,padding:"10px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-        <div style={{display:"flex",alignItems:"center",gap:10}}><span style={{color:T.white,fontSize:14,fontWeight:800}}>Admin · Páscoa 2026</span></div>
+        <div style={{display:"flex",alignItems:"center",gap:8}}>
+          <span style={{color:T.white,fontSize:14,fontWeight:800}}>Admin · Páscoa 2026</span>
+          {role==="superadmin"&&<span style={{background:T.gold,color:"#000",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:900,letterSpacing:.5}}>SUPER</span>}
+        </div>
         <div style={{display:"flex",gap:8}}><Btn variant="ghost" onClick={refresh} style={{padding:"7px 12px",fontSize:12}}>🔄</Btn><Btn variant="ghost" onClick={onBack} style={{padding:"7px 12px",fontSize:12}}>← Sair</Btn></div>
       </div>
       <PageHeader />
@@ -1032,7 +1071,13 @@ function AdminScreen({ onBack }) {
             </div>
           ))}
         </div>
-        <div style={{display:"flex",gap:8,marginBottom:14}}><TabBtn id="checkin" label="Check-in"/><TabBtn id="list" label={`Lista (${stats.regs.length})`}/><TabBtn id="waitlist" label={`Espera (${stats.waitlist})`}/></div>
+        <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+          <TabBtn id="checkin" label="Check-in"/>
+          <TabBtn id="list" label={`Lista (${stats.regs.length})`}/>
+          <TabBtn id="waitlist" label={`Espera (${stats.waitlist})`}/>
+          {role==="superadmin"&&<TabBtn id="super" label="⚙️ Config"/>}
+        </div>
+
         {tab==="checkin"&&(
           <Card style={{marginBottom:14}}>
             <Btn onClick={()=>setScanning(s=>!s)} style={{width:"100%",marginBottom:12,background:scanning?T.red:T.blue,fontSize:14}}>
@@ -1085,6 +1130,7 @@ function AdminScreen({ onBack }) {
             ))}
           </Card>
         )}
+
         {tab==="list"&&(
           <Card>
             <div style={{display:"flex",gap:8,marginBottom:12,flexWrap:"wrap"}}>
@@ -1112,16 +1158,18 @@ function AdminScreen({ onBack }) {
                 <div style={{display:"flex",flexDirection:"column",gap:6,alignItems:"flex-end"}}>
                   {!reg.checkedIn&&(<Btn variant="green" onClick={()=>handleCI(reg.regId)} style={{padding:"7px 12px",fontSize:12,whiteSpace:"nowrap"}}>Check-in</Btn>)}
                   {reg.checkedIn&&(<button onClick={()=>setCancelCIModal({show:true,regId:reg.regId,name:reg.adult.name})} style={{background:"none",border:`1px solid ${T.border}`,borderRadius:7,padding:"5px 10px",color:T.muted,fontSize:11,fontWeight:600,cursor:"pointer",whiteSpace:"nowrap"}}>↩ Cancelar</button>)}
+                  {role==="superadmin"&&(<button onClick={()=>setDeleteRegModal({show:true,regId:reg.regId,name:reg.adult.name,count:reg.children.length})} style={{background:"none",border:`1px solid ${T.red}`,borderRadius:7,padding:"5px 10px",color:T.red,fontSize:11,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>🗑 Apagar</button>)}
                 </div>
               </div>
             ))}
           </Card>
         )}
+
         {tab==="waitlist"&&(
           <Card>
             {stats.waitlistItems.length===0&&<p style={{textAlign:"center",color:T.muted,padding:20,fontSize:14,fontWeight:500}}>Lista de espera vazia</p>}
             {stats.waitlistItems.map((w,i)=>(
-              <div key={i} style={{borderBottom:`1px solid ${T.border}`,padding:"12px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
+              <div key={w._id} style={{borderBottom:`1px solid ${T.border}`,padding:"12px 0",display:"flex",justifyContent:"space-between",alignItems:"center",gap:8}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
                   <span style={{background:T.blueL,color:T.blue,borderRadius:8,padding:"4px 9px",fontSize:12,fontWeight:900,minWidth:28,textAlign:"center"}}>{i+1}</span>
                   <div>
@@ -1131,11 +1179,55 @@ function AdminScreen({ onBack }) {
                 </div>
                 <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:4}}>
                   <p style={{fontSize:11,color:T.muted,fontWeight:500,whiteSpace:"nowrap"}}>{new Date(w.at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</p>
-                  <Btn onClick={()=>handlePromote(w)} disabled={promoteLoading===w.phone} style={{padding:"5px 12px",fontSize:12,background:T.gold,whiteSpace:"nowrap"}}>{promoteLoading===w.phone?"...":"🔗 Promover"}</Btn>
+                  <div style={{display:"flex",gap:6}}>
+                    <Btn onClick={()=>handlePromote(w)} disabled={promoteLoading===w.phone} style={{padding:"5px 12px",fontSize:12,background:T.gold,whiteSpace:"nowrap"}}>{promoteLoading===w.phone?"...":"🔗 Promover"}</Btn>
+                    {role==="superadmin"&&(<button onClick={()=>setDeleteWaitModal({show:true,id:w._id,name:w.name})} style={{background:"none",border:`1px solid ${T.red}`,borderRadius:7,padding:"5px 10px",color:T.red,fontSize:11,fontWeight:700,cursor:"pointer"}}>🗑</button>)}
+                  </div>
                 </div>
               </div>
             ))}
           </Card>
+        )}
+
+        {tab==="super"&&role==="superadmin"&&(
+          <div>
+            {/* Status do cadastro */}
+            <Card style={{marginBottom:14}}>
+              <h3 style={{fontSize:13,fontWeight:800,color:T.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:.5}}>Status do cadastro público</h3>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div>
+                  <p style={{fontWeight:800,fontSize:16,color:stats.registrationClosed?T.red:T.green}}>
+                    {stats.registrationClosed?"🔴 Fechado":"🟢 Aberto"}
+                  </p>
+                  <p style={{fontSize:12,color:T.muted,marginTop:3,fontWeight:500}}>
+                    {stats.registrationClosed?"Novos cadastros desativados no site":"Novos cadastros habilitados no site"}
+                  </p>
+                </div>
+                <Btn onClick={async()=>{await setRegistrationClosed(!stats.registrationClosed);refresh();}} style={{background:stats.registrationClosed?T.green:T.red,whiteSpace:"nowrap",minWidth:100}}>
+                  {stats.registrationClosed?"🟢 Abrir":"🔴 Fechar"}
+                </Btn>
+              </div>
+            </Card>
+
+            {/* Vagas disponíveis */}
+            <Card style={{marginBottom:14}}>
+              <h3 style={{fontSize:13,fontWeight:800,color:T.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:.5}}>Vagas disponíveis</h3>
+              <div style={{display:"flex",alignItems:"center",gap:16,justifyContent:"center"}}>
+                <button onClick={()=>handleAdjustSlots(-1)} disabled={slotLoading||stats.available===0} style={{width:44,height:44,borderRadius:10,border:`2px solid ${T.red}`,background:"#FFECEC",color:T.red,fontSize:22,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <span style={{fontSize:36,fontWeight:900,color:T.blue,minWidth:60,textAlign:"center"}}>{stats.available}</span>
+                <button onClick={()=>handleAdjustSlots(1)} disabled={slotLoading} style={{width:44,height:44,borderRadius:10,border:`2px solid ${T.blue}`,background:T.blueL,color:T.blue,fontSize:22,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              </div>
+              <p style={{textAlign:"center",fontSize:12,color:T.muted,marginTop:10,fontWeight:500}}>Confirmados: {stats.confirmed} · Reservados (form aberto): {stats.reserved}</p>
+            </Card>
+
+            {/* Zona de perigo */}
+            <Card style={{border:`2px solid ${T.red}`,marginBottom:14}}>
+              <h3 style={{fontSize:13,fontWeight:800,color:T.red,marginBottom:14,textTransform:"uppercase",letterSpacing:.5}}>⚠️ Zona de perigo</h3>
+              <Btn variant="danger" onClick={()=>setClearWaitModal(true)} style={{width:"100%"}} disabled={stats.waitlist===0}>
+                🗑 Limpar toda a lista de espera ({stats.waitlist} {stats.waitlist===1?"pessoa":"pessoas"})
+              </Btn>
+            </Card>
+          </div>
         )}
       </div>
 
@@ -1145,6 +1237,33 @@ function AdminScreen({ onBack }) {
         actions={[
           <Btn key="y" variant="danger" onClick={handleCancelCI} style={{width:"100%"}}>Sim, cancelar check-in</Btn>,
           <Btn key="n" variant="ghost" onClick={()=>setCancelCIModal({show:false,regId:null,name:""})} style={{width:"100%",fontSize:14}}>Não</Btn>,
+        ]}
+      />
+
+      {/* Modal: apagar cadastro */}
+      <Modal show={deleteRegModal.show} icon="🗑" title="Apagar cadastro?"
+        body={`Isso irá apagar o cadastro de "${deleteRegModal.name}" e devolver ${deleteRegModal.count} vaga${deleteRegModal.count>1?"s":""} ao sistema. Essa ação não pode ser desfeita.`}
+        actions={[
+          <Btn key="y" variant="danger" onClick={handleDeleteReg} style={{width:"100%"}}>Sim, apagar cadastro</Btn>,
+          <Btn key="n" variant="ghost" onClick={()=>setDeleteRegModal({show:false,regId:null,name:"",count:0})} style={{width:"100%",fontSize:14}}>Cancelar</Btn>,
+        ]}
+      />
+
+      {/* Modal: apagar da lista de espera */}
+      <Modal show={deleteWaitModal.show} icon="🗑" title="Remover da lista de espera?"
+        body={`Remover "${deleteWaitModal.name}" da lista de espera? Essa ação não pode ser desfeita.`}
+        actions={[
+          <Btn key="y" variant="danger" onClick={handleDeleteWait} style={{width:"100%"}}>Sim, remover</Btn>,
+          <Btn key="n" variant="ghost" onClick={()=>setDeleteWaitModal({show:false,id:null,name:""})} style={{width:"100%",fontSize:14}}>Cancelar</Btn>,
+        ]}
+      />
+
+      {/* Modal: limpar lista de espera */}
+      <Modal show={clearWaitModal} icon="⚠️" title="Limpar toda a lista de espera?"
+        body={`Isso vai remover todas as ${stats.waitlist} pessoas da lista de espera permanentemente.`}
+        actions={[
+          <Btn key="y" variant="danger" onClick={handleClearWait} style={{width:"100%"}}>Sim, limpar tudo</Btn>,
+          <Btn key="n" variant="ghost" onClick={()=>setClearWaitModal(false)} style={{width:"100%",fontSize:14}}>Cancelar</Btn>,
         ]}
       />
 
@@ -1167,13 +1286,14 @@ function AdminScreen({ onBack }) {
 export default function App() {
   const [screen,setScreen]=useState("loading");
   const [available,setAvail]=useState(CFG.MAX_SLOTS);
+  const [regClosed,setRegClosed]=useState(false);
   const [sid,setSid]=useState(null);
   const [count,setCount]=useState(0);
   const [expiresAt,setExp]=useState(null);
   const [reg,setReg]=useState(null);
   const [bypassToken,setBypassToken]=useState(null);
   useEffect(()=>{
-    const unsub=onSnapshot(slotsRef,snap=>{setAvail(snap.data()?.available??0);});
+    const unsub=onSnapshot(slotsRef,snap=>{setAvail(snap.data()?.available??0);setRegClosed(snap.data()?.registrationClosed??false);});
     return unsub;
   },[]);
   useEffect(()=>{
@@ -1209,7 +1329,7 @@ export default function App() {
   if(screen==="admin") return <AdminScreen onBack={goHome}/>;
   if(screen==="confirmation") return <ConfirmationScreen reg={reg} onClear={()=>{clearSession();setReg(null);goHome();}}/>;
   if(screen==="recover") return <RecoverScreen onFound={r=>{setReg(r);setScreen("confirmation");}} onBack={goHome}/>;
-  if(screen==="home") return <HomeScreen available={available} onStart={()=>setScreen("select")} onRecover={()=>setScreen("recover")}/>;
+  if(screen==="home") return <HomeScreen available={available} regClosed={regClosed} onStart={()=>setScreen("select")} onRecover={()=>setScreen("recover")}/>;
   if(screen==="select") return <SelectCountScreen available={available} onSelect={handleSelect} onBack={goHome} bypass={!!bypassToken}/>;
   if(screen==="form") return <FormScreen sid={sid} initialExpiresAt={expiresAt} initialCount={count} onSuccess={r=>{setReg(r);setScreen("confirmation");}} onExpired={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("home");}} onRecover={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("recover");}} onBack={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("select");}}/>;
   return null;
