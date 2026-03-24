@@ -33,7 +33,7 @@ const slotsRef = doc(db, "config", "slots");
 
 async function ensureSlots() {
   const snap = await getDoc(slotsRef);
-  if (!snap.exists()) await setDoc(slotsRef, { available: CFG.MAX_SLOTS, nextRegNumber: 1 });
+  if (!snap.exists()) await setDoc(slotsRef, { available: CFG.MAX_SLOTS, totalSlots: CFG.MAX_SLOTS, nextRegNumber: 1 });
 }
 async function reserveSlots(n) {
   const sid=`S${Date.now()}${Math.random().toString(36).slice(2,6).toUpperCase()}`;
@@ -94,14 +94,12 @@ async function deleteRegistrationDoc(regId,count) {
 async function deleteWaitlistDoc(id) {
   await deleteDoc(doc(db,"waitlist",id));
 }
-async function adjustAvailableSlots(delta) {
-  await runTransaction(db,async(t)=>{
-    const snap=await t.get(slotsRef);
-    t.update(slotsRef,{available:Math.max(0,(snap.data()?.available??0)+delta)});
-  });
-}
 async function setRegistrationClosed(closed) {
   await updateDoc(slotsRef,{registrationClosed:closed});
+}
+async function setTotalSlots(total,confirmed,reserved) {
+  const newAvailable=Math.max(0,total-confirmed-reserved);
+  await updateDoc(slotsRef,{totalSlots:total,available:newAvailable});
 }
 async function confirmRegistration(sid,data) {
   const cpfQ=query(collection(db,"registrations"),where("adult.cpf","==",data.adult.cpf));
@@ -193,7 +191,9 @@ async function getAllStats() {
   const confirmed=regs.reduce((s,r)=>s+r.children.length,0);
   const reserved=resSnap.docs.filter(d=>new Date(d.data().expiresAt).getTime()>now).reduce((s,d)=>s+d.data().count,0);
   const waitlistItems=waitSnap.docs.map(d=>({...d.data(),_id:d.id})).sort((a,b)=>new Date(a.at)-new Date(b.at));
-  return {confirmed,reserved,available:sSnap.data()?.available??0,registrationClosed:sSnap.data()?.registrationClosed??false,waitlist:waitSnap.size,regs,waitlistItems};
+  const available=sSnap.data()?.available??0;
+  const totalSlots=sSnap.data()?.totalSlots??(available+confirmed);
+  return {confirmed,reserved,available,totalSlots,registrationClosed:sSnap.data()?.registrationClosed??false,waitlist:waitSnap.size,regs,waitlistItems};
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -313,22 +313,6 @@ function TInput({ value, onChange, placeholder, maxLength, type="text" }) {
   );
 }
 
-function SlotBar({ available }) {
-  const used=CFG.MAX_SLOTS-available, pct=Math.round((used/CFG.MAX_SLOTS)*100);
-  const bc=available>20?T.green:available>5?T.gold:T.red;
-  return (
-    <div style={{ background:T.blueL, borderRadius:14, padding:"14px 16px", marginBottom:14, animation:"fadeUp .4s ease", border:`1px solid ${T.blueM}` }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-        <span style={{ fontSize:13, fontWeight:700, color:T.blue, textTransform:"uppercase", letterSpacing:.4 }}>Vagas disponíveis</span>
-        <span style={{ fontSize:26, fontWeight:900, color:bc }}>{available}</span>
-      </div>
-      <div style={{ height:8, background:"rgba(27,91,168,.12)", borderRadius:6, overflow:"hidden" }}>
-        <div style={{ height:"100%", width:`${pct}%`, background:bc, borderRadius:6, transition:"width .6s ease" }} />
-      </div>
-      <p style={{ fontSize:12, color:T.muted, marginTop:6, fontWeight:500 }}>{used} de {CFG.MAX_SLOTS} vagas preenchidas</p>
-    </div>
-  );
-}
 
 function PageHeader() {
   return (
@@ -356,7 +340,7 @@ function Modal({ show, icon, title, body, actions }) {
 }
 
 // ── HOME ──────────────────────────────────────────────────────────────────────
-function HomeScreen({ available, regClosed, onStart, onRecover }) {
+function HomeScreen({ onStart, onRecover }) {
   const steps = [
     ["🎟️","Escolha quantas crianças vai inscrever (1 ou 2)"],
     ["📝","Preencha o cadastro com seus dados e os da(s) criança(s)"],
@@ -379,7 +363,6 @@ function HomeScreen({ available, regClosed, onStart, onRecover }) {
             <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>🎁 {CFG.EVENT_LIMITED}</p>
           </div>
         </div>
-        <SlotBar available={available} />
 
         {/* Aviso exclusividade */}
         <div style={{ background:T.blue, border:`2px solid ${T.blueD}`, borderRadius:14, padding:"14px 16px", marginBottom:14, display:"flex", gap:12, alignItems:"flex-start" }}>
@@ -419,16 +402,9 @@ function HomeScreen({ available, regClosed, onStart, onRecover }) {
             </div>
           ))}
         </Card>
-        {regClosed?(
-          <div style={{background:"#FFECEC",border:`2px solid ${T.red}`,borderRadius:14,padding:"16px 20px",marginBottom:14,textAlign:"center"}}>
-            <p style={{fontWeight:800,color:T.red,fontSize:16,marginBottom:4}}>🔴 Cadastro encerrado</p>
-            <p style={{fontSize:13,color:T.muted,fontWeight:500}}>O período de inscrições foi encerrado.</p>
-          </div>
-        ):(
-          <Btn onClick={onStart} style={{ width:"100%", fontSize:15, padding:"16px 20px", borderRadius:12 }}>
-            Quero me cadastrar →
-          </Btn>
-        )}
+        <Btn onClick={onStart} style={{ width:"100%", fontSize:15, padding:"16px 20px", borderRadius:12 }}>
+          Quero me cadastrar →
+        </Btn>
         <Btn variant="ghost" onClick={onRecover} style={{ width:"100%", marginTop:10, fontSize:14 }}>
           Já me cadastrei — recuperar comprovante
         </Btn>
@@ -451,7 +427,6 @@ function SelectCountScreen({ available, onSelect, onBack, bypass }) {
         <p style={{ textAlign:"center", color:T.muted, fontSize:15, marginBottom:18, fontWeight:600 }}>
           Quantas crianças você vai cadastrar?
         </p>
-        <SlotBar available={available} />
         <div style={{ display:"flex", flexDirection:"column", gap:12, marginBottom:14 }}>
           {[1,2].filter(n=>bypass||n<=available).map(n=>(
             <button key={n} onClick={()=>onSelect(n)} style={{
@@ -913,7 +888,7 @@ function WaitlistScreen() {
           <p style={{ color: T.muted, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}>
             {/* Você é o <strong style={{ color: T.blue }}>#{pos}º</strong> na lista de espera.<br /> */}
             Entraremos em contato pelo <br/><strong>{phone}</strong> se uma vaga for liberada.</p>
-          <p style={{ color: T.red, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}><br/><strong>IMPORTANTE!</strong><br/> Não comparecer no dia do evento sem a confirmação e inscrição prévia. <br/>Agradecemos a compreensão!</p>
+          <p style={{ color: T.red, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}><br/><strong>IMPORTANTE!</strong><br/> Não compareça no dia do evento sem a confirmação e inscrição prévia. <br/>Agradecemos a compreensão!</p>
         </Card>
       </div>
     </div> 
@@ -925,8 +900,8 @@ function WaitlistScreen() {
         <Card style={{textAlign:"center",marginBottom:14,padding:"20px"}}>
           <div style={{fontSize:36,marginBottom:8}}>😔</div>
           <h2 style={{fontSize:18,fontWeight:800,color:T.blue,marginBottom:8}}>Vagas esgotadas</h2>
-          <p style={{ color: T.muted, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}>Todas as {CFG.MAX_SLOTS} vagas foram preenchidas. Cadastre-se na lista de espera e avisaremos pelo WhatsApp se uma vaga for liberada.</p>
-          <p style={{ color: T.red, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}><br/><strong>IMPORTANTE!</strong><br/> Não comparecer no dia do evento sem a confirmação e inscrição prévia. Agradecemos a compreensão!</p>
+          <p style={{ color: T.muted, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}>Todas as vagas foram preenchidas. Cadastre-se na lista de espera e avisaremos pelo WhatsApp se uma vaga for liberada.</p>
+          <p style={{ color: T.red, fontSize: 14, lineHeight: 1.65, fontWeight: 500 }}><br/><strong>IMPORTANTE!</strong><br/> Não compareça no dia do evento sem a confirmação e inscrição prévia. Agradecemos a compreensão!</p>
         </Card>
         <Card>
           <Field label="Nome completo" error={errors.name}><TInput value={name} onChange={e=>setName(e.target.value)} placeholder="Nome e sobrenome"/></Field>
@@ -993,9 +968,9 @@ function CameraScanner({ onScan, onClose }) {
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 function AdminScreen({ onBack }) {
-  const [role,setRole]=useState(null); // null | "admin" | "superadmin"
+  const [role,setRole]=useState(()=>sessionStorage.getItem("admin_role")||null);
   const [pwd,setPwd]=useState(""); const [pwdErr,setPwdErr]=useState("");
-  const [stats,setStats]=useState({confirmed:0,reserved:0,available:CFG.MAX_SLOTS,registrationClosed:false,waitlist:0,regs:[],waitlistItems:[]});
+  const [stats,setStats]=useState({confirmed:0,reserved:0,available:0,totalSlots:CFG.MAX_SLOTS,registrationClosed:false,waitlist:0,regs:[],waitlistItems:[]});
   const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all");
   const [ciSearch,setCiSearch]=useState("");
   const [scanRes,setScanRes]=useState(null);
@@ -1007,8 +982,10 @@ function AdminScreen({ onBack }) {
   const [promoteModal,setPromoteModal]=useState({show:false,link:"",name:""});
   const [promoteLoading,setPromoteLoading]=useState(null);
   const [slotLoading,setSlotLoading]=useState(false);
+  const [slotsInput,setSlotsInput]=useState("");
   const refresh=async()=>setStats(await getAllStats());
   useEffect(()=>{if(role)refresh();},[role]);
+  useEffect(()=>{setSlotsInput(String(stats.totalSlots));},[stats.totalSlots]);
   const handleCI=async(regId)=>{await doCheckIn(regId);refresh();if(scanRes?.reg?.regId===regId)setScanRes(r=>({...r,reg:{...r.reg,checkedIn:true,checkedInAt:new Date().toISOString()}}));};
   const handleCancelCI=async()=>{await doCancelCheckIn(cancelCIModal.regId);refresh();setCancelCIModal({show:false,regId:null,name:""});if(scanRes?.reg?.regId===cancelCIModal.regId)setScanRes(r=>({...r,reg:{...r.reg,checkedIn:false,checkedInAt:null}}));};
   const handlePromote=async(item)=>{
@@ -1021,7 +998,6 @@ function AdminScreen({ onBack }) {
   const handleDeleteReg=async()=>{await deleteRegistrationDoc(deleteRegModal.regId,deleteRegModal.count);refresh();setDeleteRegModal({show:false,regId:null,name:"",count:0});};
   const handleDeleteWait=async()=>{await deleteWaitlistDoc(deleteWaitModal.id);refresh();setDeleteWaitModal({show:false,id:null,name:""});};
   const handleClearWait=async()=>{await Promise.all(stats.waitlistItems.map(w=>deleteWaitlistDoc(w._id)));refresh();setClearWaitModal(false);};
-  const handleAdjustSlots=async(delta)=>{setSlotLoading(true);await adjustAvailableSlots(delta);await refresh();setSlotLoading(false);};
   const scanCode=(id)=>{const reg=stats.regs.find(r=>r.regId===id);setScanRes(reg?{found:true,reg}:{found:false});};
   const normStr=s=>s.replace(/\D/g,"");
   const matchReg=(r,q)=>{
@@ -1043,8 +1019,8 @@ function AdminScreen({ onBack }) {
       <div style={{maxWidth:400,margin:"0 auto",padding:"0 16px"}}><PageHeader />
         <Card>
           <h2 style={{fontSize:16,fontWeight:800,color:T.blue,marginBottom:16,textTransform:"uppercase",letterSpacing:.5}}>Acesso administrativo</h2>
-          <Field label="Senha" error={pwdErr}><TInput type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){if(pwd===CFG.ADMIN_PWD)setRole("admin");else if(pwd===CFG.SUPERADMIN_PWD)setRole("superadmin");else setPwdErr("Senha incorreta");}}} placeholder="••••••••"/></Field>
-          <Btn onClick={()=>{if(pwd===CFG.ADMIN_PWD)setRole("admin");else if(pwd===CFG.SUPERADMIN_PWD)setRole("superadmin");else setPwdErr("Senha incorreta");}} style={{width:"100%",marginBottom:10}}>Entrar</Btn>
+          <Field label="Senha" error={pwdErr}><TInput type="password" value={pwd} onChange={e=>setPwd(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"){if(pwd===CFG.ADMIN_PWD){sessionStorage.setItem("admin_role","admin");setRole("admin");}else if(pwd===CFG.SUPERADMIN_PWD){sessionStorage.setItem("admin_role","superadmin");setRole("superadmin");}else setPwdErr("Senha incorreta");}}} placeholder="••••••••"/></Field>
+          <Btn onClick={()=>{if(pwd===CFG.ADMIN_PWD){sessionStorage.setItem("admin_role","admin");setRole("admin");}else if(pwd===CFG.SUPERADMIN_PWD){sessionStorage.setItem("admin_role","superadmin");setRole("superadmin");}else setPwdErr("Senha incorreta");}} style={{width:"100%",marginBottom:10}}>Entrar</Btn>
           <Btn variant="ghost" onClick={onBack} style={{width:"100%",fontSize:14}}>← Voltar</Btn>
         </Card>
       </div>
@@ -1058,12 +1034,12 @@ function AdminScreen({ onBack }) {
           <span style={{color:T.white,fontSize:14,fontWeight:800}}>Admin · Páscoa 2026</span>
           {role==="superadmin"&&<span style={{background:T.gold,color:"#000",borderRadius:6,padding:"2px 8px",fontSize:10,fontWeight:900,letterSpacing:.5}}>SUPER</span>}
         </div>
-        <div style={{display:"flex",gap:8}}><Btn variant="ghost" onClick={refresh} style={{padding:"7px 12px",fontSize:12}}>🔄</Btn><Btn variant="ghost" onClick={onBack} style={{padding:"7px 12px",fontSize:12}}>← Sair</Btn></div>
+        <div style={{display:"flex",gap:8}}><Btn variant="ghost" onClick={refresh} style={{padding:"7px 12px",fontSize:12}}>🔄</Btn><Btn variant="ghost" onClick={()=>{sessionStorage.removeItem("admin_role");onBack();}} style={{padding:"7px 12px",fontSize:12}}>← Sair</Btn></div>
       </div>
       <PageHeader />
       <div style={{maxWidth:600,margin:"0 auto",padding:"16px 16px 0"}}>
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>
-          {[["✅",stats.confirmed,T.green,"confirmados"],["🎫",stats.available,T.blue,"disponíveis"],["⏳",stats.reserved,T.gold,"no form"],["📋",stats.waitlist,T.muted,"espera"]].map(([e,v,c,l])=>(
+          {[["✅",stats.confirmed,T.green,"confirmados"],["🎫",stats.available,T.blue,"restantes"],["⏳",stats.reserved,T.gold,"no form"],["📋",stats.waitlist,T.muted,"espera"]].map(([e,v,c,l])=>(
             <div key={l} style={{background:T.white,borderRadius:12,padding:"12px 8px",textAlign:"center",boxShadow:T.shadow}}>
               <div style={{fontSize:16}}>{e}</div>
               <div style={{fontSize:24,fontWeight:900,color:c}}>{v}</div>
@@ -1071,6 +1047,18 @@ function AdminScreen({ onBack }) {
             </div>
           ))}
         </div>
+        {(()=>{const total=stats.totalSlots;const pct=total>0?Math.round((stats.confirmed/total)*100):0;const bc=stats.available>10?T.green:stats.available>3?T.gold:T.red;return(
+          <div style={{background:T.blueL,borderRadius:12,padding:"12px 16px",marginBottom:14,border:`1px solid ${T.blueM}`}}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+              <span style={{fontSize:12,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:.4}}>Confirmados</span>
+              <span style={{fontSize:15,fontWeight:900,color:T.blue}}>{stats.confirmed}<span style={{fontSize:12,color:T.muted,fontWeight:600}}>/{total}</span></span>
+            </div>
+            <div style={{height:8,background:"rgba(27,91,168,.12)",borderRadius:6,overflow:"hidden"}}>
+              <div style={{height:"100%",width:`${pct}%`,background:bc,borderRadius:6,transition:"width .6s ease"}}/>
+            </div>
+            <p style={{fontSize:11,color:T.muted,marginTop:5,fontWeight:500}}>{pct}% preenchido · {stats.available} vaga{stats.available!==1?"s":""} restante{stats.available!==1?"s":""}</p>
+          </div>
+        );})()}
         <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
           <TabBtn id="checkin" label="Check-in"/>
           <TabBtn id="list" label={`Lista (${stats.regs.length})`}/>
@@ -1211,13 +1199,20 @@ function AdminScreen({ onBack }) {
 
             {/* Vagas disponíveis */}
             <Card style={{marginBottom:14}}>
-              <h3 style={{fontSize:13,fontWeight:800,color:T.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:.5}}>Vagas disponíveis</h3>
-              <div style={{display:"flex",alignItems:"center",gap:16,justifyContent:"center"}}>
-                <button onClick={()=>handleAdjustSlots(-1)} disabled={slotLoading||stats.available===0} style={{width:44,height:44,borderRadius:10,border:`2px solid ${T.red}`,background:"#FFECEC",color:T.red,fontSize:22,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                <span style={{fontSize:36,fontWeight:900,color:T.blue,minWidth:60,textAlign:"center"}}>{stats.available}</span>
-                <button onClick={()=>handleAdjustSlots(1)} disabled={slotLoading} style={{width:44,height:44,borderRadius:10,border:`2px solid ${T.blue}`,background:T.blueL,color:T.blue,fontSize:22,fontWeight:900,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+              <h3 style={{fontSize:13,fontWeight:800,color:T.blue,marginBottom:14,textTransform:"uppercase",letterSpacing:.5}}>Total de vagas</h3>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <input
+                  type="number" min="0" value={slotsInput}
+                  onChange={e=>setSlotsInput(e.target.value)}
+                  style={{flex:1,padding:"10px 13px",borderRadius:9,border:`1.5px solid ${T.border}`,fontSize:24,fontWeight:900,color:T.blue,textAlign:"center",fontFamily:"'Montserrat',sans-serif"}}
+                />
+                <Btn
+                  onClick={async()=>{const n=parseInt(slotsInput,10);if(isNaN(n)||n<0)return;setSlotLoading(true);await setTotalSlots(n,stats.confirmed,stats.reserved);await refresh();setSlotLoading(false);}}
+                  disabled={slotLoading}
+                  style={{whiteSpace:"nowrap",padding:"10px 18px"}}
+                >{slotLoading?"...":"Confirmar"}</Btn>
               </div>
-              <p style={{textAlign:"center",fontSize:12,color:T.muted,marginTop:10,fontWeight:500}}>Confirmados: {stats.confirmed} · Reservados (form aberto): {stats.reserved}</p>
+              <p style={{fontSize:12,color:T.muted,marginTop:10,fontWeight:500}}>Confirmados: {stats.confirmed} · Reservados (form aberto): {stats.reserved}</p>
             </Card>
 
             {/* Zona de perigo */}
@@ -1316,7 +1311,7 @@ export default function App() {
       } catch(e) { console.error("App init failed:",e); setScreen("home"); }
     })();
   },[]);
-  useEffect(()=>{if(["home","select"].includes(screen)&&available===0&&!bypassToken)setScreen("waitlist");},[available,screen,bypassToken]);
+  useEffect(()=>{if(["home","select"].includes(screen)&&(available===0||regClosed)&&!bypassToken)setScreen("waitlist");},[available,screen,bypassToken,regClosed]);
   const goHome=()=>setScreen("home");
   const handleSelect=async(n)=>{
     const res=bypassToken ? await redeemBypassToken(bypassToken,n) : await reserveSlots(n);
@@ -1329,7 +1324,7 @@ export default function App() {
   if(screen==="admin") return <AdminScreen onBack={goHome}/>;
   if(screen==="confirmation") return <ConfirmationScreen reg={reg} onClear={()=>{clearSession();setReg(null);goHome();}}/>;
   if(screen==="recover") return <RecoverScreen onFound={r=>{setReg(r);setScreen("confirmation");}} onBack={goHome}/>;
-  if(screen==="home") return <HomeScreen available={available} regClosed={regClosed} onStart={()=>setScreen("select")} onRecover={()=>setScreen("recover")}/>;
+  if(screen==="home") return <HomeScreen onStart={()=>setScreen("select")} onRecover={()=>setScreen("recover")}/>;
   if(screen==="select") return <SelectCountScreen available={available} onSelect={handleSelect} onBack={goHome} bypass={!!bypassToken}/>;
   if(screen==="form") return <FormScreen sid={sid} initialExpiresAt={expiresAt} initialCount={count} onSuccess={r=>{setReg(r);setScreen("confirmation");}} onExpired={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("home");}} onRecover={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("recover");}} onBack={async()=>{if(sid)await cancelReservation(sid);setSid(null);setCount(0);setExp(null);setScreen("select");}}/>;
   return null;
