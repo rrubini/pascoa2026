@@ -189,11 +189,12 @@ async function getAllStats() {
   ]);
   const regs=regsSnap.docs.map(d=>d.data());
   const confirmed=regs.reduce((s,r)=>s+r.children.length,0);
+  const checkedIn=regs.filter(r=>r.checkedIn).length;
   const reserved=resSnap.docs.filter(d=>new Date(d.data().expiresAt).getTime()>now).reduce((s,d)=>s+d.data().count,0);
   const waitlistItems=waitSnap.docs.map(d=>({...d.data(),_id:d.id})).sort((a,b)=>new Date(a.at)-new Date(b.at));
   const available=sSnap.data()?.available??0;
   const totalSlots=sSnap.data()?.totalSlots??(available+confirmed);
-  return {confirmed,reserved,available,totalSlots,registrationClosed:sSnap.data()?.registrationClosed??false,waitlist:waitSnap.size,regs,waitlistItems};
+  return {confirmed,checkedIn,reserved,available,totalSlots,registrationClosed:sSnap.data()?.registrationClosed??false,waitlist:waitSnap.size,regs,waitlistItems};
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -970,8 +971,8 @@ function CameraScanner({ onScan, onClose }) {
 function AdminScreen({ onBack }) {
   const [role,setRole]=useState(()=>sessionStorage.getItem("admin_role")||null);
   const [pwd,setPwd]=useState(""); const [pwdErr,setPwdErr]=useState("");
-  const [stats,setStats]=useState({confirmed:0,reserved:0,available:0,totalSlots:CFG.MAX_SLOTS,registrationClosed:false,waitlist:0,regs:[],waitlistItems:[]});
-  const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all");
+  const [stats,setStats]=useState({confirmed:0,checkedIn:0,reserved:0,available:0,totalSlots:CFG.MAX_SLOTS,registrationClosed:false,waitlist:0,regs:[],waitlistItems:[]});
+  const [search,setSearch]=useState(""); const [filter,setFilter]=useState("all"); const [sort,setSort]=useState("date");
   const [ciSearch,setCiSearch]=useState("");
   const [scanRes,setScanRes]=useState(null);
   const [tab,setTab]=useState("checkin"); const [scanning,setScanning]=useState(false);
@@ -1010,7 +1011,7 @@ function AdminScreen({ onBack }) {
   const filtered=stats.regs.filter(r=>{
     if(searchActive&&!matchReg(r,search.trim())) return false;
     if(filter==="done") return r.checkedIn; if(filter==="pending") return !r.checkedIn; return true;
-  });
+  }).sort((a,b)=>sort==="name"?a.adult.name.localeCompare(b.adult.name,"pt-BR"):new Date(a.confirmedAt)-new Date(b.confirmedAt));
   const ciActive=ciSearch.trim().length>=3;
   const ciFiltered=ciActive?stats.regs.filter(r=>matchReg(r,ciSearch.trim())):[];
   if(!role) return (
@@ -1038,27 +1039,40 @@ function AdminScreen({ onBack }) {
       </div>
       <PageHeader />
       <div style={{maxWidth:600,margin:"0 auto",padding:"16px 16px 0"}}>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:16}}>
-          {[["✅",stats.confirmed,T.green,"confirmados"],["🎫",stats.available,T.blue,"restantes"],["⏳",stats.reserved,T.gold,"no form"],["📋",stats.waitlist,T.muted,"espera"]].map(([e,v,c,l])=>(
-            <div key={l} style={{background:T.white,borderRadius:12,padding:"12px 8px",textAlign:"center",boxShadow:T.shadow}}>
-              <div style={{fontSize:16}}>{e}</div>
-              <div style={{fontSize:24,fontWeight:900,color:c}}>{v}</div>
-              <div style={{fontSize:10,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>{l}</div>
-            </div>
-          ))}
-        </div>
-        {(()=>{const total=stats.totalSlots;const pct=total>0?Math.round((stats.confirmed/total)*100):0;const bc=stats.available>10?T.green:stats.available>3?T.gold:T.red;return(
-          <div style={{background:T.blueL,borderRadius:12,padding:"12px 16px",marginBottom:14,border:`1px solid ${T.blueM}`}}>
-            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-              <span style={{fontSize:12,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:.4}}>Confirmados</span>
-              <span style={{fontSize:15,fontWeight:900,color:T.blue}}>{stats.confirmed}<span style={{fontSize:12,color:T.muted,fontWeight:600}}>/{total}</span></span>
-            </div>
-            <div style={{height:8,background:"rgba(27,91,168,.12)",borderRadius:6,overflow:"hidden"}}>
-              <div style={{height:"100%",width:`${pct}%`,background:bc,borderRadius:6,transition:"width .6s ease"}}/>
-            </div>
-            <p style={{fontSize:11,color:T.muted,marginTop:5,fontWeight:500}}>{pct}% preenchido · {stats.available} vaga{stats.available!==1?"s":""} restante{stats.available!==1?"s":""}</p>
+        {role==="admin"&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8,marginBottom:16}}>
+            {[["✅",stats.confirmed,T.green,"confirmados"],["🚪",stats.checkedIn,T.blue,"check-ins"]].map(([e,v,c,l])=>(
+              <div key={l} style={{background:T.white,borderRadius:12,padding:"16px 8px",textAlign:"center",boxShadow:T.shadow}}>
+                <div style={{fontSize:20}}>{e}</div>
+                <div style={{fontSize:32,fontWeight:900,color:c}}>{v}</div>
+                <div style={{fontSize:11,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.5}}>{l}</div>
+              </div>
+            ))}
           </div>
-        );})()}
+        )}
+        {role==="superadmin"&&(<>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6,marginBottom:12}}>
+            {[["✅",stats.confirmed,T.green,"confirmados"],["🚪",stats.checkedIn,T.blue,"check-ins"],["🎫",stats.available,T.blue,"restantes"],["⏳",stats.reserved,T.gold,"no form"],["📋",stats.waitlist,T.muted,"espera"]].map(([e,v,c,l])=>(
+              <div key={l} style={{background:T.white,borderRadius:12,padding:"10px 4px",textAlign:"center",boxShadow:T.shadow}}>
+                <div style={{fontSize:14}}>{e}</div>
+                <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
+                <div style={{fontSize:9,color:T.muted,fontWeight:700,textTransform:"uppercase",letterSpacing:.3}}>{l}</div>
+              </div>
+            ))}
+          </div>
+          {(()=>{const total=stats.totalSlots;const pct=total>0?Math.round((stats.confirmed/total)*100):0;const bc=stats.available>10?T.green:stats.available>3?T.gold:T.red;return(
+            <div style={{background:T.blueL,borderRadius:12,padding:"12px 16px",marginBottom:14,border:`1px solid ${T.blueM}`}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <span style={{fontSize:12,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:.4}}>Confirmados</span>
+                <span style={{fontSize:15,fontWeight:900,color:T.blue}}>{stats.confirmed}<span style={{fontSize:12,color:T.muted,fontWeight:600}}>/{total}</span></span>
+              </div>
+              <div style={{height:8,background:"rgba(27,91,168,.12)",borderRadius:6,overflow:"hidden"}}>
+                <div style={{height:"100%",width:`${pct}%`,background:bc,borderRadius:6,transition:"width .6s ease"}}/>
+              </div>
+              <p style={{fontSize:11,color:T.muted,marginTop:5,fontWeight:500}}>{pct}% preenchido · {stats.available} vaga{stats.available!==1?"s":""} restante{stats.available!==1?"s":""}</p>
+            </div>
+          );})()}
+        </>)}
         <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
           <TabBtn id="checkin" label="Check-in"/>
           <TabBtn id="list" label={`Lista (${stats.regs.length})`}/>
@@ -1125,6 +1139,9 @@ function AdminScreen({ onBack }) {
               <input placeholder="Nome, CPF, código, telefone..." value={search} onChange={e=>setSearch(e.target.value)} style={{flex:1,minWidth:160,padding:"10px 13px",borderRadius:9,border:`1.5px solid ${T.border}`,fontSize:13,fontFamily:"'Montserrat',sans-serif"}}/>
               <select value={filter} onChange={e=>setFilter(e.target.value)} style={{padding:"10px 12px",borderRadius:9,border:`1.5px solid ${T.border}`,fontSize:13,fontFamily:"'Montserrat',sans-serif",background:T.white,color:T.text}}>
                 <option value="all">Todos</option><option value="pending">Sem check-in</option><option value="done">Check-in feito</option>
+              </select>
+              <select value={sort} onChange={e=>setSort(e.target.value)} style={{padding:"10px 12px",borderRadius:9,border:`1.5px solid ${T.border}`,fontSize:13,fontFamily:"'Montserrat',sans-serif",background:T.white,color:T.text}}>
+                <option value="date">↑ Data</option><option value="name">A–Z Nome</option>
               </select>
             </div>
             {search.trim().length>0&&search.trim().length<3&&(
