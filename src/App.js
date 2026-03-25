@@ -210,9 +210,18 @@ function validateCPF(cpf) {
   s=0; for(let i=0;i<10;i++) s+=+cpf[i]*(11-i);
   r=(s*10)%11; if(r>=10) r=0; return r===+cpf[10];
 }
+function validateAdultAge(dob) {
+  const [d,m,y]=dob.split("/").map(Number);
+  if(!d||!m||!y||y<1900||m>12||d>31) return {ok:false,msg:"Data inválida"};
+  const dt=new Date(y,m-1,d),today=new Date();
+  let age=today.getFullYear()-dt.getFullYear();
+  if(today.getMonth()<dt.getMonth()||(today.getMonth()===dt.getMonth()&&today.getDate()<dt.getDate())) age--;
+  if(age<18) return {ok:false,msg:"O responsável deve ter pelo menos 18 anos"};
+  return {ok:true,age};
+}
 function validateAge(dob) {
   const [d,m,y]=dob.split("/").map(Number);
-  if(!d||!m||!y||y<2010||m>12||d>31) return {ok:false,msg:"Data inválida"};
+  if(!d||!m||!y||y<2010||m>12||d>31) return {ok:false,msg:"Criança precisa ter entre 3 e 12 anos"};
   const dt=new Date(y,m-1,d),today=new Date();
   let age=today.getFullYear()-dt.getFullYear();
   if(today.getMonth()<dt.getMonth()||(today.getMonth()===dt.getMonth()&&today.getDate()<dt.getDate())) age--;
@@ -307,9 +316,9 @@ function Field({ label, error, hint, children }) {
   );
 }
 
-function TInput({ value, onChange, placeholder, maxLength, type="text" }) {
+function TInput({ value, onChange, onBlur, placeholder, maxLength, type="text" }) {
   return (
-    <input type={type} value={value} onChange={onChange} placeholder={placeholder} maxLength={maxLength}
+    <input type={type} value={value} onChange={onChange} onBlur={onBlur} placeholder={placeholder} maxLength={maxLength}
       style={{ width:"100%", padding:"11px 13px", borderRadius:9, border:`1.5px solid ${T.border}`, fontSize:14, color:T.text, background:T.white }} />
   );
 }
@@ -528,12 +537,13 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
   const [renewals, setRenewals]   = useState(0);
   const [modal, setModal]         = useState(null);
   const warned = useRef(false);
-  const [adult, setAdult]   = useState({name:"",cpf:"",phone:"",dob:"",street:"",num:"",hood:""});
+  const [adult, setAdult]   = useState({name:"",cpf:"",phone:"",dob:"",street:"",num:"",complement:"",hood:""});
   const [aErr, setAErr]     = useState({});
   const [children, setCh]   = useState(Array.from({length:initialCount},()=>({name:"",dob:"",cpf:""})));
   const [cErr, setCErr]     = useState(Array.from({length:initialCount},()=>({})));
   const [resCount, setRes]  = useState(initialCount);
   const [subErr, setSubErr] = useState("");
+  const [formErr, setFormErr] = useState(false);
   const [loading, setLoad]  = useState(false);
   const [cpfCheck, setCpfCheck] = useState("idle"); // idle | checking | taken | free
 
@@ -574,6 +584,37 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
     setCh(c=>c.map((ch,idx)=>idx===i?{...ch,[k]:v}:ch));
     setCErr(e=>e.map((ce,idx)=>idx===i?{...ce,[k]:""}:ce));
   };
+  const blurA=(k)=>{
+    setAdult(cur=>{
+      const v=cur[k];
+      let msg="";
+      if(k==="name"&&!fullName(v)) msg="Nome completo obrigatório";
+      if(k==="dob"){
+        if(v.length<10) msg="Data inválida";
+        else{const r=validateAdultAge(v);if(!r.ok) msg=r.msg;}
+      }
+      if(k==="phone"&&v.replace(/\D/g,"").length<10) msg="Telefone inválido";
+      if(k==="street"&&!v.trim()) msg="Obrigatório";
+      if(k==="num"&&!v.trim()) msg="Obrigatório";
+      if(k==="hood"&&!v.trim()) msg="Obrigatório";
+      if(msg) setAErr(e=>({...e,[k]:msg}));
+      return cur;
+    });
+  };
+  const blurC=(i,k)=>{
+    setCh(cur=>{
+      const v=cur[i][k];
+      let msg="";
+      if(k==="name"&&!fullName(v)) msg="Nome completo obrigatório";
+      if(k==="dob"){
+        if(v.length<10) msg="Data obrigatória";
+        else{const r=validateAge(v);if(!r.ok) msg=r.msg;}
+      }
+      if(k==="cpf"&&v&&!validateCPF(v)) msg="CPF inválido (ou deixe em branco)";
+      if(msg) setCErr(e=>e.map((ce,idx)=>idx===i?{...ce,[k]:msg}:ce));
+      return cur;
+    });
+  };
   const handleAddChild=async()=>{
     const res=await upgradeReservation(sid);
     if(res.ok){setRes(2);setCh(c=>[...c,{name:"",dob:"",cpf:""}]);setCErr(e=>[...e,{}]);}
@@ -585,6 +626,7 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
     if(!validateCPF(adult.cpf)){ae.cpf="CPF inválido";ok=false;}
     if(adult.phone.replace(/\D/g,"").length<10){ae.phone="Telefone inválido";ok=false;}
     if(adult.dob.length<10){ae.dob="Data inválida";ok=false;}
+    else{const v=validateAdultAge(adult.dob);if(!v.ok){ae.dob=v.msg;ok=false;}}
     if(!adult.street.trim()){ae.street="Obrigatório";ok=false;}
     if(!adult.num.trim()){ae.num="Obrigatório";ok=false;}
     if(!adult.hood.trim()){ae.hood="Obrigatório";ok=false;}
@@ -600,7 +642,7 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
     setCErr(ce); return ok;
   };
   const handleSubmit=async()=>{
-    if(!validate()) return; setLoad(true); setSubErr("");
+    if(!validate()){setFormErr(true);return;} setFormErr(false); setLoad(true); setSubErr("");
     const res=await confirmRegistration(sid,{adult,children,consents});
     setLoad(false);
     if(res.ok) onSuccess(res.reg); else setSubErr(res.reason);
@@ -650,16 +692,19 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
           )}
           {cpfCheck==="free"&&<p style={{fontSize:12,color:T.green,fontWeight:700,marginTop:-10,marginBottom:12}}>✅ CPF disponível</p>}
           <div style={cpfCheck!=="free"?{opacity:.35,pointerEvents:"none",userSelect:"none"}:{}}>
-            <Field label="Nome completo *" error={aErr.name}><TInput value={adult.name} onChange={e=>setA("name",e.target.value)} placeholder="Nome e sobrenome"/></Field>
+            <Field label="Nome completo *" error={aErr.name}><TInput value={adult.name} onChange={e=>setA("name",e.target.value)} onBlur={()=>blurA("name")} placeholder="Nome e sobrenome"/></Field>
             <div style={{display:"flex",gap:10}}>
-              <div style={{flex:1}}><Field label="Data de nasc. *" error={aErr.dob}><TInput value={adult.dob} onChange={e=>setA("dob",e.target.value)} placeholder="DD/MM/AAAA" maxLength={10}/></Field></div>
-              <div style={{flex:1}}><Field label="WhatsApp *" error={aErr.phone}><TInput value={adult.phone} onChange={e=>setA("phone",e.target.value)} placeholder="(00) 00000-0000"/></Field></div>
+              <div style={{flex:1}}><Field label="Data de nasc. *" error={aErr.dob}><TInput value={adult.dob} onChange={e=>setA("dob",e.target.value)} onBlur={()=>blurA("dob")} placeholder="DD/MM/AAAA" maxLength={10}/></Field></div>
+              <div style={{flex:1}}><Field label="WhatsApp *" error={aErr.phone}><TInput value={adult.phone} onChange={e=>setA("phone",e.target.value)} onBlur={()=>blurA("phone")} placeholder="(00) 00000-0000"/></Field></div>
             </div>
             <div style={{display:"flex",gap:10}}>
-              <div style={{flex:3}}><Field label="Rua *" error={aErr.street}><TInput value={adult.street} onChange={e=>setA("street",e.target.value)} placeholder="Nome da rua"/></Field></div>
-              <div style={{flex:1}}><Field label="Número *" error={aErr.num}><TInput value={adult.num} onChange={e=>setA("num",e.target.value)} placeholder="Nº"/></Field></div>
+              <div style={{flex:3}}><Field label="Rua *" error={aErr.street}><TInput value={adult.street} onChange={e=>setA("street",e.target.value)} onBlur={()=>blurA("street")} placeholder="Nome da rua"/></Field></div>
+              <div style={{flex:1}}><Field label="Número *" error={aErr.num}><TInput value={adult.num} onChange={e=>setA("num",e.target.value)} onBlur={()=>blurA("num")} placeholder="Nº"/></Field></div>
             </div>
-            <Field label="Bairro *" error={aErr.hood}><TInput value={adult.hood} onChange={e=>setA("hood",e.target.value)} placeholder="Bairro"/></Field>
+            <div style={{display:"flex",gap:10}}>
+              <div style={{flex:2}}><Field label="Complemento" error={aErr.complement}><TInput value={adult.complement} onChange={e=>setA("complement",e.target.value)} placeholder="Apto, bloco, casa..."/></Field></div>
+              <div style={{flex:2}}><Field label="Bairro *" error={aErr.hood}><TInput value={adult.hood} onChange={e=>setA("hood",e.target.value)} onBlur={()=>blurA("hood")} placeholder="Bairro"/></Field></div>
+            </div>
           </div>
         </Card>
 
@@ -671,19 +716,20 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
                 <div style={{ width:36, height:36, borderRadius:10, background:T.goldL, display:"flex", alignItems:"center", justifyContent:"center", fontSize:18 }}>🍫</div>
                 <h2 style={{ fontSize:15, fontWeight:800, color:T.blue }}>{children.length>1?`Criança ${i+1}`:"Dados da Criança"}</h2>
               </div>
-              <Field label="Nome completo *" error={cErr[i]?.name}><TInput value={ch.name} onChange={e=>setC(i,"name",e.target.value)} placeholder="Nome e sobrenome" /></Field>
+              <Field label="Nome completo *" error={cErr[i]?.name}><TInput value={ch.name} onChange={e=>setC(i,"name",e.target.value)} onBlur={()=>blurC(i,"name")} placeholder="Nome e sobrenome" /></Field>
               <div style={{ display:"flex", gap:10 }}>
-                <div style={{ flex:1 }}><Field label="Data de nasc. *" error={cErr[i]?.dob} hint="Idade: 3 a 12 anos"><TInput value={ch.dob} onChange={e=>setC(i,"dob",e.target.value)} placeholder="DD/MM/AAAA" maxLength={10} /></Field></div>
-                <div style={{ flex:1 }}><Field label="CPF (opcional)" error={cErr[i]?.cpf}><TInput value={ch.cpf} onChange={e=>setC(i,"cpf",e.target.value)} placeholder="000.000.000-00" maxLength={14} /></Field></div>
+                <div style={{ flex:1 }}><Field label="Data de nasc. *" error={cErr[i]?.dob} hint="Idade: 3 a 12 anos"><TInput value={ch.dob} onChange={e=>setC(i,"dob",e.target.value)} onBlur={()=>blurC(i,"dob")} placeholder="DD/MM/AAAA" maxLength={10} /></Field></div>
+                <div style={{ flex:1 }}><Field label="CPF (opcional)" error={cErr[i]?.cpf}><TInput value={ch.cpf} onChange={e=>setC(i,"cpf",e.target.value)} onBlur={()=>blurC(i,"cpf")} placeholder="000.000.000-00" maxLength={14} /></Field></div>
               </div>
             </Card>
           ))}
           {resCount===1&&(
-            <button onClick={handleAddChild} style={{ width:"100%", marginBottom:14, background:T.blueL, border:`2px dashed ${T.blue}`, borderRadius:12, padding:"13px 20px", fontSize:14, fontWeight:700, color:T.blue, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+            <button onClick={()=>setModal("confirmAdd")} style={{ width:"100%", marginBottom:14, background:T.blueL, border:`2px dashed ${T.blue}`, borderRadius:12, padding:"13px 20px", fontSize:14, fontWeight:700, color:T.blue, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
               + Adicionar segunda criança
             </button>
           )}
           {subErr&&<div style={{ background:"#FFECEC", border:`1px solid ${T.red}`, borderRadius:10, padding:"12px 14px", marginBottom:14, color:T.red, fontSize:14, fontWeight:600 }}>⚠ {subErr}</div>}
+          {formErr&&<div style={{ background:"#FFF3CD", border:`2px solid #E6A817`, borderRadius:12, padding:"14px 16px", marginBottom:14, color:"#7A4F00", fontSize:14, fontWeight:700, textAlign:"center" }}>⚠ Verifique os campos destacados em vermelho antes de continuar.</div>}
           <Btn onClick={handleSubmit} disabled={loading||cpfCheck!=="free"} style={{ width:"100%", fontSize:15, padding:"16px", borderRadius:12 }}>
             {loading?"Confirmando...":"Confirmar Cadastro 🎉"}
           </Btn>
@@ -703,6 +749,13 @@ function FormScreen({ sid, initialExpiresAt, initialCount, consents, onSuccess, 
       <Modal show={modal==="expired"} icon="⌛" title="Tempo esgotado"
         body="Sua reserva expirou e as vagas foram liberadas. Você precisará iniciar um novo cadastro."
         actions={[<Btn key="x" variant="danger" onClick={onExpired} style={{width:"100%"}}>Iniciar novo cadastro</Btn>]}
+      />
+      <Modal show={modal==="confirmAdd"} icon="🍫" title="Adicionar segunda criança?"
+        body="Ao confirmar, uma segunda vaga será reservada para outra criança. Essa ação consome uma vaga disponível."
+        actions={[
+          <Btn key="yes" onClick={()=>{setModal(null);handleAddChild();}} style={{width:"100%"}}>Sim, adicionar segunda criança</Btn>,
+          <Btn key="no" variant="ghost" onClick={()=>setModal(null)} style={{width:"100%",fontSize:14}}>Cancelar</Btn>,
+        ]}
       />
       <Modal show={modal==="addFail"} icon="😔" title="Não foi possível adicionar"
         body="Não há vagas disponíveis para uma segunda criança no momento."
@@ -1374,7 +1427,7 @@ function AdminScreen({ onBack }) {
               <p><b>CPF:</b> {detailReg.adult.cpf}</p>
               <p><b>Telefone:</b> {detailReg.adult.phone}</p>
               <p><b>Nascimento:</b> {detailReg.adult.dob}</p>
-              <p><b>Endereço:</b> {detailReg.adult.street}, {detailReg.adult.num} — {detailReg.adult.hood}</p>
+              <p><b>Endereço:</b> {detailReg.adult.street}, {detailReg.adult.num}{detailReg.adult.complement ? `, ${detailReg.adult.complement}` : ""} — {detailReg.adult.hood}</p>
             </div>
 
             <h3 style={{fontSize:13,fontWeight:900,color:T.blue,textTransform:"uppercase",letterSpacing:.5,marginBottom:10}}>Criança{detailReg.children.length>1?"s":""}</h3>
