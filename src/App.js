@@ -1116,7 +1116,7 @@ function RegCard({ reg, onCheckIn, onCancelCheckIn }) {
         <p style={{color:T.green,fontSize:13,marginTop:10,fontWeight:700}}>✅ Entrada registrada às {new Date(reg.checkedInAt).toLocaleTimeString("pt-BR")}</p>
       )}
       {reg.checkedIn&&onCancelCheckIn&&(
-        <button onClick={()=>onCancelCheckIn(reg)} style={{background:"none",border:"none",padding:"4px 0",color:T.muted,fontSize:11,fontWeight:600,textDecoration:"underline",cursor:"pointer"}}>Cancelar check-in</button>
+        <Btn variant="danger" onClick={()=>onCancelCheckIn(reg)} style={{width:"100%",marginTop:10,fontSize:17,padding:"16px",fontWeight:900,letterSpacing:.5}}>CANCELAR CHECK-IN ❌</Btn>
       )}
     </div>
   );
