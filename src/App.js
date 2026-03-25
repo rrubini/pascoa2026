@@ -1305,7 +1305,7 @@ function AdminScreen({ onBack }) {
                     ? <button onClick={()=>handleCI(reg.regId)} style={{background:T.green,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>✅ Check-in</button>
                     : <button onClick={()=>setCancelCIModal({show:true,regId:reg.regId,name:reg.adult.name})} style={{background:T.green,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center",opacity:.45}}>↩ Feito</button>
                   } */}
-                  <button onClick={()=>setDetailReg(reg)} style={{background:T.blue,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>👁 Ver</button>
+                  <button onClick={()=>setDetailReg(reg)} style={{background:T.blue,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>Ver</button>
                   {role==="superadmin"&&(<button onClick={()=>setDeleteRegModal({show:true,regId:reg.regId,name:reg.adult.name,count:reg.children.length})} style={{background:T.red,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>🗑 Apagar</button>)}
                 </div>
               </div>
