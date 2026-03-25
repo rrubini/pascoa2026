@@ -1155,7 +1155,8 @@ function AdminScreen({ onBack }) {
   const handleDeleteReg=async()=>{await deleteRegistrationDoc(deleteRegModal.regId,deleteRegModal.count);refresh();setDeleteRegModal({show:false,regId:null,name:"",count:0});};
   const handleDeleteWait=async()=>{await deleteWaitlistDoc(deleteWaitModal.id);refresh();setDeleteWaitModal({show:false,id:null,name:""});};
   const handleClearWait=async()=>{await Promise.all(stats.waitlistItems.map(w=>deleteWaitlistDoc(w._id)));refresh();setClearWaitModal(false);};
-  const scanCode=(id)=>{const reg=stats.regs.find(r=>r.regId===id);setScanRes(reg?{found:true,reg}:{found:false});};
+  const scanCode=(id)=>{const reg=stats.regs.find(r=>r.regId===id);setCiSearch("");setScanRes(reg?{found:true,reg}:{found:false});};
+
   const normStr=s=>s.replace(/\D/g,"");
   const matchReg=(r,q)=>{
     const ql=q.toLowerCase(); const qd=normStr(q);
