@@ -142,6 +142,8 @@ async function findRegByCPF(cpf) {
   return reg;
 }
 async function addWaitlist(name,phone) {
+  const dup=await getDocs(query(collection(db,"waitlist"),where("phone","==",phone)));
+  if(!dup.empty) return "duplicate";
   const snap=await getDocs(collection(db,"waitlist"));
   await addDoc(collection(db,"waitlist"),{name,phone,at:new Date().toISOString()});
   return snap.size+1;
@@ -1008,7 +1010,9 @@ function WaitlistScreen({ onRecover }) {
     if(!fullName(name)) e.name="Nome completo obrigatório";
     if(phone.replace(/\D/g,"").length<10) e.phone="WhatsApp inválido";
     if(Object.keys(e).length){setErrors(e);return;}
-    setPos(await addWaitlist(name,phone));
+    const res=await addWaitlist(name,phone);
+    if(res==="duplicate"){setErrors({phone:"Este WhatsApp já está na lista de espera"});return;}
+    setPos(res);
   };
   if(pos) return (
     <div style={{minHeight:"100vh",background:T.bg}}><Styles />
