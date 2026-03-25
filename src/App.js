@@ -844,7 +844,7 @@ async function generatePDF(reg) {
     doc.setDrawColor(...gold); doc.rect(10,y-4,W-20,9,'S');
     doc.setTextColor(...goldD); doc.setFont("helvetica","bold"); doc.setFontSize(10);
     doc.text(ch.name,14,y+1);
-    doc.text(`Pulseira #${reg.childNumbers[i]}`,W-14,y+1,{align:"right"});
+    doc.text(`Registro #${reg.childNumbers[i]}`,W-14,y+1,{align:"right"});
     y+=11;
   });
   y+=4; dash(); y+=8;
@@ -923,7 +923,7 @@ function ConfirmationScreen({ reg, onClear }) {
               <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                 <p style={{ fontSize:14, fontWeight:700, color:T.text }}>🍫 {ch.name}</p>
                 <div style={{ background:T.gold, color:T.white, borderRadius:8, padding:"4px 12px", fontSize:12, fontWeight:800 }}>
-                  Pulseira #{reg.childNumbers[i]}
+                  Registro #{reg.childNumbers[i]}
                 </div>
               </div>
             ))}
@@ -1099,6 +1099,29 @@ function CameraScanner({ onScan, onClose }) {
   );
 }
 
+// ── REG CARD (check-in) ───────────────────────────────────────────────────────
+function RegCard({ reg, onCheckIn, onCancelCheckIn }) {
+  return (
+    <div style={{marginBottom:14,padding:"14px 16px",borderRadius:12,background:T.greenL,border:`1px solid ${T.green}`}}>
+      <p style={{fontWeight:800,color:T.green,fontSize:14}}>✅ {reg.regId}</p>
+      <p style={{fontSize:16,color:T.text,marginTop:4,fontWeight:800}}>{reg.adult.name}</p>
+      <div style={{display:"inline-block",marginTop:8,marginBottom:2,padding:"6px 14px",borderRadius:20,fontWeight:800,fontSize:15,background:reg.consents?.image?T.greenL:"#FEF3C7",color:reg.consents?.image?T.green:"#92400e",border:`2px solid ${reg.consents?.image?T.green:"#D97706"}`}}>
+        {reg.consents?.image?"📷 Imagem autorizada":"📷 Imagem NÃO autorizada"}
+      </div>
+      <p style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:6}}>{reg.adult.phone}</p>
+      {reg.children.map((c,i)=>(<p key={i} style={{fontSize:13,color:T.text,marginTop:3,fontWeight:600}}>🍫 {c.name} <span style={{color:T.gold,fontWeight:800}}>Registro #{reg.childNumbers[i]}</span></p>))}
+      {!reg.checkedIn?(
+        <Btn variant="green" onClick={()=>onCheckIn(reg.regId)} style={{width:"100%",marginTop:14,fontSize:17,padding:"16px",fontWeight:900,letterSpacing:.5}}>FAZER CHECK-IN ✅</Btn>
+      ):(
+        <p style={{color:T.green,fontSize:13,marginTop:10,fontWeight:700}}>✅ Entrada registrada às {new Date(reg.checkedInAt).toLocaleTimeString("pt-BR")}</p>
+      )}
+      {reg.checkedIn&&onCancelCheckIn&&(
+        <button onClick={()=>onCancelCheckIn(reg)} style={{background:"none",border:"none",padding:"4px 0",color:T.muted,fontSize:11,fontWeight:600,textDecoration:"underline",cursor:"pointer"}}>Cancelar check-in</button>
+      )}
+    </div>
+  );
+}
+
 // ── ADMIN ─────────────────────────────────────────────────────────────────────
 function AdminScreen({ onBack }) {
   const [role,setRole]=useState(()=>sessionStorage.getItem("admin_role")||null);
@@ -1220,23 +1243,9 @@ function AdminScreen({ onBack }) {
             </Btn>
             {scanning&&<CameraScanner onScan={code=>{setScanning(false);scanCode(code);}} onClose={()=>setScanning(false)}/>}
             {scanRes&&(
-              <div style={{marginBottom:14,padding:"14px 16px",borderRadius:12,background:scanRes.found?T.greenL:"#FFECEC",border:`1px solid ${scanRes.found?T.green:T.red}`}}>
-                {scanRes.found?(
-                  <div>
-                    <p style={{fontWeight:800,color:T.green,fontSize:14}}>✅ {scanRes.reg.regId}</p>
-                    <p style={{fontSize:16,color:T.text,marginTop:4,fontWeight:800}}>{scanRes.reg.adult.name}</p>
-                    <p style={{fontSize:13,color:T.muted,fontWeight:500,marginTop:2}}>{scanRes.reg.adult.phone}</p>
-                    {scanRes.reg.children.map((c,i)=>(<p key={i} style={{fontSize:13,color:T.text,marginTop:3,fontWeight:600}}>🍫 {c.name} <span style={{color:T.gold,fontWeight:800}}>Pulseira #{scanRes.reg.childNumbers[i]}</span></p>))}
-                    {!scanRes.reg.checkedIn?(
-                      <Btn variant="green" onClick={()=>handleCI(scanRes.reg.regId)} style={{width:"100%",marginTop:14,fontSize:17,padding:"16px",fontWeight:900,letterSpacing:.5}}>FAZER CHECK-IN ✅</Btn>
-                    ):(
-                      <p style={{color:T.green,fontSize:13,marginTop:10,fontWeight:700}}>✅ Entrada registrada às {new Date(scanRes.reg.checkedInAt).toLocaleTimeString("pt-BR")}</p>
-                    )}
-                  </div>
-                ):(
-                  <p style={{color:T.red,fontSize:14,fontWeight:700}}>Código não encontrado</p>
-                )}
-              </div>
+              scanRes.found
+                ? <RegCard reg={scanRes.reg} onCheckIn={handleCI} onCancelCheckIn={r=>setCancelCIModal({show:true,regId:r.regId,name:r.adult.name})}/>
+                : <div style={{marginBottom:14,padding:"14px 16px",borderRadius:12,background:"#FFECEC",border:`1px solid ${T.red}`}}><p style={{color:T.red,fontSize:14,fontWeight:700}}>Código não encontrado</p></div>
             )}
             <input
               placeholder="Buscar por nome, CPF, código, telefone..."
@@ -1250,26 +1259,7 @@ function AdminScreen({ onBack }) {
               <p style={{textAlign:"center",color:T.muted,padding:"12px 0",fontSize:14,fontWeight:500}}>Nenhum resultado</p>
             )}
             {ciFiltered.map(r=>(
-              <div key={r.regId} style={{borderBottom:`1px solid ${T.border}`,padding:"12px 0"}}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:4}}>
-                  <div>
-                    <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3,flexWrap:"wrap"}}>
-                      <p style={{ fontWeight: 800, fontSize: 14, color: T.text }}>{r.adult.name}</p>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",gap:5,marginBottom:3}}>
-                      <span style={{width:9,height:9,borderRadius:"50%",flexShrink:0,display:"inline-block",background:r.consents?(r.consents.image?"#22c55e":"#c0392b"):"#c0392b",boxShadow:r.consents?(r.consents.image?"0 0 0 2px #22c55e":"0 0 0 2px #c0392b"):undefined}}/>
-                      <span style={{fontSize:11,fontWeight:700,color:r.consents?(r.consents.image?T.green:"#92400e"):T.red}}>
-                        {r.consents?(r.consents.image?"Imagem autorizada":"Imagem NÃO autorizada"):"Sem consentimento"}
-                      </span>
-                    </div>
-                    <p style={{fontSize:12,color:T.muted,fontWeight:500}}>{r.adult.phone} · <span style={{color:T.blue,fontWeight:700}}>{r.regId}</span></p>
-                    {r.children.map((ch,i)=>(<p key={i} style={{fontSize:12,color:T.text,marginTop:2,fontWeight:600}}>🍫 <span style={{color:T.gold,fontWeight:800}}>#{r.childNumbers[i]}</span> {ch.name} </p>))}
-                  </div>
-                  {r.checkedIn?<span style={{background:T.greenL,color:T.green,borderRadius:8,padding:"4px 10px",fontSize:11,fontWeight:800,whiteSpace:"nowrap"}}>✅ FEITO</span>:null}
-                </div>
-                {!r.checkedIn&&<Btn variant="green" onClick={()=>handleCI(r.regId)} style={{width:"100%",fontSize:15,padding:"12px",fontWeight:900,letterSpacing:.5}}>FAZER CHECK-IN ✅</Btn>}
-                {r.checkedIn&&<button onClick={()=>setCancelCIModal({show:true,regId:r.regId,name:r.adult.name})} style={{background:"none",border:"none",padding:"4px 0",color:T.muted,fontSize:11,fontWeight:600,textDecoration:"underline",cursor:"pointer"}}>Cancelar check-in</button>}
-              </div>
+              <RegCard key={r.regId} reg={r} onCheckIn={handleCI} onCancelCheckIn={r=>setCancelCIModal({show:true,regId:r.regId,name:r.adult.name})}/>
             ))}
           </Card>
         )}
@@ -1305,10 +1295,10 @@ function AdminScreen({ onBack }) {
                   {reg.children.map((ch,i)=>(<p key={i} style={{fontSize:13,color:T.text,marginTop:3,fontWeight:600}}>🍫 <span style={{color:T.gold,fontWeight:800}}>#{reg.childNumbers[i]}</span> {ch.name}</p>))}
                 </div>
                 <div style={{display:"flex",flexDirection:"column",gap:5,alignItems:"stretch",width:82}}>
-                  {!reg.checkedIn
+                  {/* {!reg.checkedIn
                     ? <button onClick={()=>handleCI(reg.regId)} style={{background:T.green,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>✅ Check-in</button>
                     : <button onClick={()=>setCancelCIModal({show:true,regId:reg.regId,name:reg.adult.name})} style={{background:T.green,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center",opacity:.45}}>↩ Feito</button>
-                  }
+                  } */}
                   <button onClick={()=>setDetailReg(reg)} style={{background:T.blue,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>👁 Ver</button>
                   {role==="superadmin"&&(<button onClick={()=>setDeleteRegModal({show:true,regId:reg.regId,name:reg.adult.name,count:reg.children.length})} style={{background:T.red,border:"none",borderRadius:7,padding:"7px 0",color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",width:"100%",textAlign:"center"}}>🗑 Apagar</button>)}
                 </div>
