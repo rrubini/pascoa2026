@@ -17,7 +17,7 @@ const CFG = {
   OPEN_AT: new Date(Date.now() - 1000),
   EVENT_DATE_LABEL: "04 de abril de 2026.",
   EVENT_DAY_LABEL: "Sábado",
-  EVENT_TIME_LABEL: "Recepção aberta entre 9h e 10h30.",
+  EVENT_TIME_LABEL: "Recepção aberta entre 9h e 10h30. Término 11h30.",
   EVENT_LIMITED: "Vagas limitadas - garanta a sua!",
   LOCATION_LABEL: "RP, Gardênia e Araticum.",
   ADDRESS_LABEL: "Av. Engenheiro Souza Filho, 3555 (ao lado da Malibu).",
