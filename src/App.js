@@ -15,12 +15,12 @@ const CFG = {
   SUPERADMIN_PWD: "superalpha2026",
   ADMIN_PATH: "/alpha-admin",
   OPEN_AT: new Date(Date.now() - 1000),
-  EVENT_DATE_LABEL: "04 de abril de 2026",
+  EVENT_DATE_LABEL: "04 de abril de 2026.",
   EVENT_DAY_LABEL: "Sábado",
-  EVENT_TIME_LABEL: "Recepção aberta entre 9h e 10h30",
+  EVENT_TIME_LABEL: "Recepção aberta entre 9h e 10h30.",
   EVENT_LIMITED: "Vagas limitadas - garanta a sua!",
-  LOCATION_LABEL: "RP, Gardênia e Araticum",
-  ADDRESS_LABEL: "Av. Engenheiro Souza Filho, 3555 (ao lado da Malibu)",
+  LOCATION_LABEL: "RP, Gardênia e Araticum.",
+  ADDRESS_LABEL: "Av. Engenheiro Souza Filho, 3555 (ao lado da Malibu).",
   ORG_LABEL: "Ministério Alpha",
   ORG_SUBTITLE: "A Igreja da Família",
   // Logo como SVG inline baseado na identidade visual
@@ -367,7 +367,7 @@ function HomeScreen({ onStart, onRecover }) {
         <PageHeader />
         <div style={{ background:`linear-gradient(135deg,${T.blue},${T.blueD})`, borderRadius:16, padding:"18px 20px", marginBottom:14, boxShadow:T.shadowMd }}>
           <p style={{ color:T.gold, fontSize:11, fontWeight:800, letterSpacing:2, textTransform:"uppercase" }}>Ação Social de Páscoa</p>
-          <h2 style={{ color:T.white, fontSize:20, fontWeight:800, margin:"4px 0 6px", lineHeight:1.3 }}>Distribuição de 1 CAIXA DE BOMBOM para crianças de 3 a 12 anos, moradores do RP, Gardênia e Araticum</h2>
+          <h2 style={{ color:T.white, fontSize:20, fontWeight:800, margin:"4px 0 6px", lineHeight:1.3 }}>Distribuição de 1 CAIXA DE BOMBOM para crianças de 3 a 12 anos, moradores do RP, Gardênia e Araticum.</h2>
           <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
             <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>📅 {CFG.EVENT_DAY_LABEL}, {CFG.EVENT_DATE_LABEL}</p>
             <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>🕘 {CFG.EVENT_TIME_LABEL}</p>
@@ -392,7 +392,8 @@ function HomeScreen({ onStart, onRecover }) {
           <p style={{ fontSize:13, fontWeight:800, color:T.goldD, marginBottom:8, textTransform:"uppercase", letterSpacing:.4 }}>⚠️ Leia antes de se cadastrar</p>
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {[
-              ["👶","Crianças de 3 a 12 anos completos"],
+              ["👶", "Crianças de 3 a 12 anos completos"],
+              ["💷","Traga o documento que comprova a idade da criança cadastrada (certidão de nascimento ou identidade)."],
               ["👨‍👧","Máximo de 2 crianças por adulto responsável (cada criança receberá 1 CAIXA DE BOMBOM)"],
               ["📄","O CPF do responsável é obrigatório e vincula o cadastro — um CPF = um cadastro"],
               ["🚪","O responsável cadastrado deve estar presente junto com as crianças para efetuar a entrada no evento"],
@@ -888,11 +889,12 @@ function ConfirmationScreen({ reg, onClear }) {
           {/* Header do ticket */}
           <div style={{ background:`linear-gradient(135deg,${T.blue},${T.blueD})`, borderRadius:16, padding:"18px 20px", marginBottom:14, boxShadow:T.shadowMd }}>
             <p style={{ color:T.gold, fontSize:11, fontWeight:800, letterSpacing:2, textTransform:"uppercase" }}>Ação Social de Páscoa</p>
-            <h2 style={{ color:T.white, fontSize:20, fontWeight:800, margin:"4px 0 6px", lineHeight:1.3 }}>Distribuição de 1 CAIXA DE BOMBOM para crianças de 3 a 12 anos, moradores do RP, Gardênia e Araticum</h2>
+            <h2 style={{ color:T.white, fontSize:20, fontWeight:800, margin:"4px 0 6px", lineHeight:1.3 }}>Distribuição de 1 CAIXA DE BOMBOM para crianças de 3 a 12 anos, moradores do RP, Gardênia e Araticum.</h2>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap" }}>
               <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>📅 {CFG.EVENT_DAY_LABEL}, {CFG.EVENT_DATE_LABEL}</p>
               <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>🕘 {CFG.EVENT_TIME_LABEL}</p>
               <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>📍 {CFG.ADDRESS_LABEL}</p>
+              <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>💷 Traga o documento que comprova a idade da criança cadastrada (certidão de nascimento ou identidade)</p>
             </div>
           </div>
 
@@ -928,6 +930,19 @@ function ConfirmationScreen({ reg, onClear }) {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Programação */}
+          <div style={{ background:T.white, padding:"14px 22px", borderBottom:`1.5px solid ${T.border}` }}>
+            <p style={{ color:T.muted, fontSize:11, fontWeight:700, textTransform:"uppercase", letterSpacing:.5, marginBottom:10 }}>
+              Programação do evento
+            </p>
+            <ul style={{ paddingLeft: 16, fontSize:13, color:T.text, fontWeight:500, lineHeight:1.6 }}>
+              <li style={{ marginBottom: 4 }}>9h30 — Abertura dos portões e entrada dos inscritos.</li>
+              <li style={{ marginBottom: 4 }}>9h30 às 10h30 — Brincadeiras para as crianças.</li>
+              <li style={{ marginBottom: 4 }}>10h30 às 11h20 — Apresentação de Páscoa das crianças do Ministério Alpha.</li>
+              <li>11h30 — Distribuição das caixas de bombom e encerramento.</li>
+            </ul>
           </div>
 
           {/* QR Code */}
