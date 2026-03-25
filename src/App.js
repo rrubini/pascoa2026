@@ -393,7 +393,7 @@ function HomeScreen({ onStart, onRecover }) {
           <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
             {[
               ["👶", "Crianças de 3 a 12 anos completos"],
-              ["💷","Traga o documento que comprova a idade da criança cadastrada (certidão de nascimento ou identidade)."],
+              ["💷","IMPORTANTE: Traga o documento que comprova a idade da criança cadastrada (certidão de nascimento ou identidade)."],
               ["👨‍👧","Máximo de 2 crianças por adulto responsável (cada criança receberá 1 CAIXA DE BOMBOM)"],
               ["📄","O CPF do responsável é obrigatório e vincula o cadastro — um CPF = um cadastro"],
               ["🚪","O responsável cadastrado deve estar presente junto com as crianças para efetuar a entrada no evento"],
@@ -894,7 +894,6 @@ function ConfirmationScreen({ reg, onClear }) {
               <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>📅 {CFG.EVENT_DAY_LABEL}, {CFG.EVENT_DATE_LABEL}</p>
               <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>🕘 {CFG.EVENT_TIME_LABEL}</p>
               <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>📍 {CFG.ADDRESS_LABEL}</p>
-              <p style={{ color:"rgba(255,255,255,.8)", fontSize:13, fontWeight:600 }}>💷 Traga o documento que comprova a idade da criança cadastrada (certidão de nascimento ou identidade)</p>
             </div>
           </div>
 
@@ -930,6 +929,7 @@ function ConfirmationScreen({ reg, onClear }) {
                 </div>
               </div>
             ))}
+            <p style={{ color:T.red, fontSize:13, fontWeight:600 }}>Importante: Traga o documento que comprova a idade da criança cadastrada (certidão de nascimento ou identidade)</p>
           </div>
 
           {/* Programação */}
