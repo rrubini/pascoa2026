@@ -1146,6 +1146,7 @@ function AdminScreen({ onBack }) {
   const [slotsInput,setSlotsInput]=useState("");
   const refresh=async()=>setStats(await getAllStats());
   useEffect(()=>{if(role)refresh();},[role]);
+  useEffect(()=>{if(!role)return;const t=setInterval(refresh,10_000);return()=>clearInterval(t);},[role]);
   useEffect(()=>{setSlotsInput(String(stats.totalSlots));},[stats.totalSlots]);
   const handleCI=async(regId)=>{await doCheckIn(regId);refresh();if(scanRes?.reg?.regId===regId)setScanRes(r=>({...r,reg:{...r.reg,checkedIn:true,checkedInAt:new Date().toISOString()}}));};
   const handleCancelCI=async()=>{await doCancelCheckIn(cancelCIModal.regId);refresh();setCancelCIModal({show:false,regId:null,name:""});if(scanRes?.reg?.regId===cancelCIModal.regId)setScanRes(r=>({...r,reg:{...r.reg,checkedIn:false,checkedInAt:null}}));};
