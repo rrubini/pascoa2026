@@ -429,7 +429,6 @@ function HomeScreen({ onStart, onRecover }) {
 // ── CONSENT ───────────────────────────────────────────────────────────────────
 function ConsentScreen({ onAccept, onBack }) {
   const [step, setStep] = useState(1); // 1 = lgpd, 2 = imagem
-  const [image, setImage] = useState(null); // null | true | false
 
   return (
     <div style={{minHeight:"100vh",background:T.bg}}>
@@ -487,12 +486,12 @@ function ConsentScreen({ onAccept, onBack }) {
             </div>
             <div style={{display:"flex",gap:10,marginTop:18}}>
               <button
-                onClick={()=>{setImage(false);onAccept(false);}}
+                onClick={()=>onAccept(false)}
                 style={{flex:1,padding:"14px 10px",borderRadius:12,border:`2px solid ${T.border}`,background:T.white,fontSize:14,fontWeight:700,color:T.muted,cursor:"pointer"}}>
                 Não autorizo
               </button>
               <button
-                onClick={()=>{setImage(true);onAccept(true);}}
+                onClick={()=>onAccept(true)}
                 style={{flex:1,padding:"14px 10px",borderRadius:12,border:`2px solid ${T.green}`,background:T.greenL,fontSize:14,fontWeight:700,color:T.green,cursor:"pointer"}}>
                 ✓ Sim, autorizo
               </button>
