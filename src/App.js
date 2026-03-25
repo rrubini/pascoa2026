@@ -1148,7 +1148,7 @@ function AdminScreen({ onBack }) {
   const handlePromote=async(item)=>{
     setPromoteLoading(item.phone);
     const token=await createBypassToken(item.name,item.phone);
-    const link=`${window.location.origin}${window.location.pathname}?t=${token}`;
+    const link=`${window.location.origin}?t=${token}`;
     setPromoteLoading(null);
     setPromoteModal({show:true,link,name:item.name});
   };

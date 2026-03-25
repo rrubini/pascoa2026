@@ -17,11 +17,10 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // Lista de espera — apenas escrita
+    // Lista de espera — qualquer um pode entrar; delete aberto (sem auth no evento)
     match /waitlist/{id} {
-      allow create: if true;
-      allow read: if true;
-      allow update, delete: if false;
+      allow create, read, delete: if true;
+      allow update: if false;
     }
 
     // Tokens de bypass (promoção de lista de espera)
