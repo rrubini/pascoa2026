@@ -1000,7 +1000,7 @@ function RecoverScreen({ onFound, onBack }) {
 }
 
 // ── LISTA DE ESPERA ───────────────────────────────────────────────────────────
-function WaitlistScreen() {
+function WaitlistScreen({ onRecover }) {
   const [name,setName]=useState(""); const [phone,setPhone]=useState("");
   const [errors,setErrors]=useState({}); const [pos,setPos]=useState(null);
   const submit=async()=>{
@@ -1039,6 +1039,7 @@ function WaitlistScreen() {
           <Field label="Nome completo" error={errors.name}><TInput value={name} onChange={e=>setName(e.target.value)} placeholder="Nome e sobrenome"/></Field>
           <Field label="WhatsApp" error={errors.phone}><TInput value={phone} onChange={e=>setPhone(maskPhone(e.target.value))} placeholder="(00) 00000-0000"/></Field>
           <Btn onClick={submit} style={{width:"100%"}}>Entrar na lista de espera</Btn>
+          <Btn variant="ghost" onClick={onRecover} style={{width:"100%",marginTop:10,fontSize:14}}>Já me cadastrei — recuperar comprovante</Btn>
         </Card>
       </div>
     </div>
@@ -1524,7 +1525,7 @@ export default function App() {
     setSid(res.sid);setCount(n);setExp(res.expiresAt);setScreen("form");
   };
   if(screen==="loading") return <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center"}}><Styles /><p style={{color:T.muted,fontFamily:"Montserrat,sans-serif",fontSize:14}}>Carregando...</p></div>;
-  if(screen==="waitlist") return <WaitlistScreen />;
+  if(screen==="waitlist") return <WaitlistScreen onRecover={()=>setScreen("recover")} />;
   if(screen==="admin") return <AdminScreen onBack={goHome}/>;
   if(screen==="confirmation") return <ConfirmationScreen reg={reg} onClear={()=>{clearSession();setReg(null);goHome();}}/>;
   if(screen==="recover") return <RecoverScreen onFound={r=>{setReg(r);setScreen("confirmation");}} onBack={goHome}/>;
