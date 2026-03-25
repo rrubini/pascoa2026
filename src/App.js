@@ -1214,7 +1214,7 @@ function AdminScreen({ onBack }) {
         )}
         {role==="superadmin"&&(<>
           <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:6,marginBottom:12}}>
-            {[["✅",stats.confirmed,T.green,"confirmados"],["🚪",stats.checkedIn,T.blue,"check-ins"],["🎫",stats.available,T.blue,"restantes"],["⏳",stats.reserved,T.gold,"no form"],["📋",stats.waitlist,T.muted,"espera"]].map(([e,v,c,l])=>(
+            {[["✅",stats.confirmed,T.green,"crianças"],["🚪",stats.checkedIn,T.blue,"check-ins"],["🎫",stats.available,T.blue,"restantes"],["⏳",stats.reserved,T.gold,"no form"],["📋",stats.waitlist,T.muted,"espera"]].map(([e,v,c,l])=>(
               <div key={l} style={{background:T.white,borderRadius:12,padding:"10px 4px",textAlign:"center",boxShadow:T.shadow}}>
                 <div style={{fontSize:14}}>{e}</div>
                 <div style={{fontSize:20,fontWeight:900,color:c}}>{v}</div>
@@ -1225,7 +1225,7 @@ function AdminScreen({ onBack }) {
           {(()=>{const total=stats.totalSlots;const pct=total>0?Math.round((stats.confirmed/total)*100):0;const bc=stats.available>10?T.green:stats.available>3?T.gold:T.red;return(
             <div style={{background:T.blueL,borderRadius:12,padding:"12px 16px",marginBottom:14,border:`1px solid ${T.blueM}`}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
-                <span style={{fontSize:12,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:.4}}>Confirmados</span>
+                <span style={{fontSize:12,fontWeight:700,color:T.blue,textTransform:"uppercase",letterSpacing:.4}}>Crianças</span>
                 <span style={{fontSize:15,fontWeight:900,color:T.blue}}>{stats.confirmed}<span style={{fontSize:12,color:T.muted,fontWeight:600}}>/{total}</span></span>
               </div>
               <div style={{height:8,background:"rgba(27,91,168,.12)",borderRadius:6,overflow:"hidden"}}>
