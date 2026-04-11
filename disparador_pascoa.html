@@ -61,6 +61,23 @@
   .modal-actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; }
   .btn-cancel { background: #f3f4f6; color: #374151; }
   .btn-save { background: #4f46e5; color: #fff; }
+
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .tab { flex: 1; padding: 10px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; color: #666; }
+  .tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+  .card.came .avatar { background: #dcfce7; color: #16a34a; }
+  .badge-status { font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 6px; font-weight: 600; vertical-align: middle; }
+  .badge-came { background: #dcfce7; color: #166534; }
+  .badge-missed { background: #fef3c7; color: #92400e; }
+  .badge-wait { background: #e0e7ff; color: #3730a3; }
+  .row-num { min-width: 28px; text-align: right; font-size: 12px; font-weight: 700; color: #999; font-variant-numeric: tabular-nums; margin-right: 4px; }
+  .filter-tabs { display: flex; gap: 6px; padding: 0 16px 10px; background: #fff; }
+  .filter-tab { flex: 1; padding: 8px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 8px; font-size: 12px; font-weight: 500; cursor: pointer; color: #666; }
+  .filter-tab.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  .source-tabs { display: flex; gap: 6px; padding: 10px 16px 4px; background: #fff; }
+  .source-tab { flex: 1; padding: 11px 8px; border: 1px solid #ddd; background: #f9f9f9; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; color: #555; }
+  .source-tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
 </style>
 </head>
 <body>
@@ -76,10 +93,20 @@
   <div class="stat"><div class="stat-val orange" id="s-pending">0</div><div class="stat-label">pendentes</div></div>
 </div>
 
+<div class="source-tabs">
+  <button class="source-tab active" id="src-confirmed" onclick="setSource('confirmed')">Confirmados (<span id="src-count-confirmed">0</span>)</button>
+  <button class="source-tab" id="src-waitlist" onclick="setSource('waitlist')">Lista de espera (<span id="src-count-waitlist">0</span>)</button>
+</div>
+
 <div class="search-wrap">
   <input type="search" id="search" placeholder="Buscar por nome, telefone ou REG..." oninput="renderList()" />
 </div>
 
+<div class="filter-tabs">
+  <button class="filter-tab active" id="ft-all" onclick="setFilter('all')">Todos</button>
+  <button class="filter-tab" id="ft-came" onclick="setFilter('came')">✅ Compareceu</button>
+  <button class="filter-tab" id="ft-missed" onclick="setFilter('missed')">⏳ Faltou</button>
+</div>
 <div id="warn-bar" class="warn-bar" style="display:none"></div>
 
 <div class="list" id="list"></div>
@@ -89,9 +116,16 @@
 
 <div class="modal-bg" id="modal-bg" onclick="bgClick(event)">
   <div class="modal">
-    <h2>Mensagem</h2>
-    <p>Use <code>[Nome]</code> para o primeiro nome e <code>[REG]</code> para o número de cadastro.</p>
-    <textarea id="msg-editor" rows="9" oninput="updatePreview()"></textarea>
+    <h2>Mensagens</h2>
+    <p>Use <code>[Nome]</code> para o primeiro nome. Três mensagens: compareceu, faltou, e lista de espera.</p>
+
+    <div class="tabs">
+      <button class="tab active" id="tab-done" onclick="switchTab('done')">✅ Compareceu</button>
+      <button class="tab" id="tab-missed" onclick="switchTab('missed')">⏳ Faltou</button>
+      <button class="tab" id="tab-wait" onclick="switchTab('wait')">📋 Espera</button>
+    </div>
+
+    <textarea id="msg-editor" rows="11" oninput="updatePreview()"></textarea>
     <div class="modal-preview" id="msg-preview"></div>
     <div class="modal-actions">
       <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
@@ -102,131 +136,259 @@
 
 <script>
 const CONTACTS = [
-  { name: "Roberta Santiago da Silva Bernardo", phone: "(21) 98298-0650", reg: "REG-0037" },
-  { name: "Eraldilene de Jesus Pereira", phone: "(21) 98583-3352", reg: "REG-0038" },
-  { name: "Greice Kelly da Silva Braz de Souza", phone: "(21) 96548-7726", reg: "REG-0039" },
-  { name: "Nádia Ferreira Grimaldi", phone: "(21) 98514-0627", reg: "REG-0040" },
-  { name: "Francilene Santos da Cunha", phone: "(21) 96936-3671", reg: "REG-0041" },
-  { name: "Daniele Cirino Ferreira", phone: "(21) 98221-5410", reg: "REG-0042" },
-  { name: "Carla Pestana Villela", phone: "(21) 98328-4393", reg: "REG-0043" },
-  { name: "Elenice Maria do Monte", phone: "(21) 96919-6259", reg: "REG-0044" },
-  { name: "Andressa Maria Ferreira Barboza", phone: "(21) 96731-9396", reg: "REG-0045" },
-  { name: "Raquel Cosma da Silva", phone: "(21) 98348-3102", reg: "REG-0046" },
-  { name: "Letícia da Rocha Bezerra", phone: "(21) 99564-0761", reg: "REG-0047" },
-  { name: "André Luiz da Silva", phone: "(21) 98241-2112", reg: "REG-0048" },
-  { name: "Maria Daniela Neves da Costa", phone: "(21) 98160-9653", reg: "REG-0049" },
-  { name: "Dijanira Gomes da Silva", phone: "(21) 98143-9648", reg: "REG-0050" },
-  { name: "Ana Paula Oliveira Pereira", phone: "(21) 98018-4037", reg: "REG-0051" },
-  { name: "Rafaela Pereira dos Santos", phone: "(21) 97996-7834", reg: "REG-0052" },
-  { name: "Maria Clara Rocha Guimarães", phone: "(21) 96929-5330", reg: "REG-0053" },
-  { name: "Mayara Oliveira", phone: "(21) 97977-1593", reg: "REG-0054" },
-  { name: "Juliana Rodrigues", phone: "(21) 97929-8700", reg: "REG-0055" },
-  { name: "Tassia Araujo Gitahy", phone: "(21) 99933-1230", reg: "REG-0056" },
-  { name: "Adriane Damasceno Rodrigues", phone: "(21) 96980-2229", reg: "REG-0057" },
-  { name: "Susana Santana Secco", phone: "(21) 95917-5529", reg: "REG-0058" },
-  { name: "Alice Alonso", phone: "(21) 98029-7819", reg: "REG-0059" },
-  { name: "Tatiane Araujo da Silva", phone: "(21) 98952-4263", reg: "REG-0060" },
-  { name: "Karmina Soares Diniz", phone: "(21) 98621-9557", reg: "REG-0061" },
-  { name: "Nathalia Aparecida da Silva", phone: "(21) 98287-3323", reg: "REG-0062" },
-  { name: "Gleivania dos Santos Costa", phone: "(21) 99888-6743", reg: "REG-0063" },
-  { name: "Lucas Gomes da Silva", phone: "(21) 98335-9707", reg: "REG-0064" },
-  { name: "Sheila da Silva Bezerra", phone: "(21) 95953-6012", reg: "REG-0065" },
-  { name: "Izabel Augusto", phone: "(21) 96661-9033", reg: "REG-0066" },
-  { name: "Maria Clara", phone: "(21) 96017-7178", reg: "REG-0067" },
-  { name: "Patrícia Ferreira", phone: "(21) 99708-1522", reg: "REG-0068" },
-  { name: "Ana Brenda Dutra da Silva", phone: "(21) 98984-9339", reg: "REG-0069" },
-  { name: "Naeli da Silva Abreu", phone: "(21) 95923-2724", reg: "REG-0070" },
-  { name: "Elisangela Brandão Teles", phone: "(21) 98057-1337", reg: "REG-0071" },
-  { name: "Ana Francisco Gomes", phone: "(21) 96554-2333", reg: "REG-0072" },
-  { name: "Zuleica Melo Macedo", phone: "(21) 97993-8128", reg: "REG-0073" },
-  { name: "Giselle Conceição da Silva", phone: "(21) 97004-7740", reg: "REG-0074" },
-  { name: "Rosângela Maria de Jesus Araújo", phone: "(21) 96709-5962", reg: "REG-0075" },
-  { name: "Taciane Carvalho", phone: "(21) 98722-4001", reg: "REG-0076" },
-  { name: "Lorena Souza", phone: "(21) 97724-6129", reg: "REG-0077" },
-  { name: "Maria Taynara Carvalho de Santana", phone: "(21) 97970-8663", reg: "REG-0078" },
-  { name: "Fernanda Vieira", phone: "(21) 99843-6658", reg: "REG-0079" },
-  { name: "Luana Oliveira dos Santos Cota", phone: "(21) 97348-4073", reg: "REG-0080" },
-  { name: "Ingrid dos Santos Teles", phone: "(21) 96931-3835", reg: "REG-0081" },
-  { name: "Leilane Inácio do Vale", phone: "(21) 98063-5059", reg: "REG-0082" },
-  { name: "Gerlaine Silva Viana", phone: "(21) 98348-3102", reg: "REG-0083" },
-  { name: "Carla de Almeida R Santos", phone: "(21) 99081-5673", reg: "REG-0084" },
-  { name: "Antônia Alessamia Soares Freires", phone: "(21) 98866-7873", reg: "REG-0085" },
-  { name: "Milena Eduarda da Silva", phone: "(81) 99970-7934", reg: "REG-0086" },
-  { name: "Silvania Araújo Barbosa", phone: "(21) 98285-069", reg: "REG-0087" },
-  { name: "Yasmim Ferreira Dias", phone: "(22) 98281-7544", reg: "REG-0088" },
-  { name: "Diana Gleyse da Conceição Ferreira", phone: "(21) 96592-0908", reg: "REG-0089" },
-  { name: "Andreza Ferreira Soares", phone: "(21) 97244-6151", reg: "REG-0090" },
-  { name: "Aline Mesquita da Silva", phone: "(21) 97598-0792", reg: "REG-0091" },
-  { name: "Ingrid Maciel", phone: "(21) 99083-4491", reg: "REG-0092" },
-  { name: "Daniele Ferreira Soares", phone: "(21) 98398-5954", reg: "REG-0093" },
-  { name: "Débora da Conceição Farias", phone: "(21) 99291-0364", reg: "REG-0094" },
-  { name: "Cecília de Cassia Alves Faria", phone: "(21) 98559-9804", reg: "REG-0095" },
-  { name: "Camile da Silva Souza", phone: "(21) 99774-9100", reg: "REG-0096" },
-  { name: "Suellen Cristina Coutinho Pimentel", phone: "(21) 98158-8068", reg: "REG-0097" },
-  { name: "Tatiana dos Santos Alves", phone: "(21) 99140-3784", reg: "REG-0098" },
-  { name: "Erlânia Fernandes Jorge", phone: "(21) 98165-6782", reg: "REG-0099" },
-  { name: "Antônia Mirlene Rodrigues Nascimento", phone: "(21) 96672-8630", reg: "REG-0100" },
-  { name: "Evelyn de Oliveira Reis", phone: "(21) 99248-1469", reg: "REG-0101" },
-  { name: "Isabella Andrade de Brito", phone: "(21) 98048-7381", reg: "REG-0102" },
-  { name: "Elizete Mudesto", phone: "(21) 97519-3113", reg: "REG-0103" },
-  { name: "Raimunda de Souza Nascimento", phone: "(21) 98176-3221", reg: "REG-0104" },
-  { name: "Marcelo Henrique", phone: "(21) 99150-4196", reg: "REG-0105" },
-  { name: "Flávia da Silva", phone: "(21) 99713-2775", reg: "REG-0106" },
-  { name: "Patricia da Silva Brasiliano", phone: "(21) 97394-7025", reg: "REG-0107" },
-  { name: "Aldirene Pereira da Silva", phone: "(21) 99566-4105", reg: "REG-0108" },
-  { name: "Mercia de Fátima da Silva Lima", phone: "(21) 98256-6320", reg: "REG-0109" },
-  { name: "Noadia Barbosa de Almeida", phone: "(21) 98181-7310", reg: "REG-0110" },
-  { name: "Fernanda Moreth de Souza Siqueira", phone: "(21) 98666-6669", reg: "REG-0111" },
-  { name: "Rayssa Moreth Siqueira Souza", phone: "(21) 96530-1744", reg: "REG-0112" },
-  { name: "Alane do Nascimento Araújo", phone: "(21) 99483-8224", reg: "REG-0113" },
-  { name: "Flávia Moreth Souza", phone: "(55) 21988-9775", reg: "REG-0114" },
-  { name: "Renata Neris Braz Faria", phone: "(21) 96984-6036", reg: "REG-0115" },
-  { name: "Luciana Marthias", phone: "(21) 98654-3033", reg: "REG-0116" },
-  { name: "Irene Souza Feliciano", phone: "(21) 95848-4791", reg: "REG-0117" },
-  { name: "Thais Alves", phone: "(21) 98165-0435", reg: "REG-0118" },
-  { name: "Vittoria Mathias", phone: "(21) 99589-7210", reg: "REG-0119" },
-  { name: "Suelen Souza Gomes", phone: "(21) 98666-9094", reg: "REG-0120" },
-  { name: "Maria Patricia Rodrigues Damasceno", phone: "(21) 98062-5868", reg: "REG-0121" },
-  { name: "Anny Caroliny Gomes Fonseca", phone: "(21) 98004-4349", reg: "REG-0122" },
-  { name: "Jacielly R S Roque", phone: "(21) 99926-6868", reg: "REG-0123" },
-  { name: "Kethelyn Pereira da Silva", phone: "(21) 95954-5062", reg: "REG-0124" },
-  { name: "Maria Patricia Mesquita Moura", phone: "(21) 97953-2139", reg: "REG-0125" },
-  { name: "Tamires Costa de Sousa", phone: "(21) 21988-4992", reg: "REG-0126" },
-  { name: "Juliana Santanna Santos", phone: "(21) 96610-7740", reg: "REG-0127" },
-  { name: "Ana Maria Magalhães Damasceno", phone: "(21) 96975-8599", reg: "REG-0128" },
-  { name: "Isabela Cristina Pachu Gomes", phone: "(21) 96881-0915", reg: "REG-0129" },
-  { name: "Thiago da Silva Araújo", phone: "(21) 98984-1639", reg: "REG-0130" },
-  { name: "Jaqueline Silva dos Santos", phone: "(21) 99265-8539", reg: "REG-0131" },
-  { name: "Luana da Silva Cirino", phone: "(21) 97148-0724", reg: "REG-0132" },
-  { name: "Margarida Maria Alves da Silva", phone: "(21) 98483-4847", reg: "REG-0133" },
-  { name: "Andreia Calixto Vieira", phone: "(21) 98740-9414", reg: "REG-0134" },
-  { name: "Thailane Mathias Rodrigues", phone: "(21) 96584-6225", reg: "REG-0135" },
-  { name: "Samara Cristina Batista Chaves", phone: "(21) 96546-9043", reg: "REG-0136" },
-  { name: "Jaciana Saraiva Batista", phone: "(21) 97987-9880", reg: "REG-0137" },
-  { name: "Karla Glenda da Silva Freire", phone: "(21) 98548-5300", reg: "REG-0138" },
-  { name: "Maria Luzanete de Azevedo Silva", phone: "(21) 96626-9156", reg: "REG-0139" },
-  { name: "Tatiana Medeiros de Souza", phone: "(21) 98751-2336", reg: "REG-0140" },
-  { name: "Luciene Cardoso da Silva", phone: "(21) 97644-6549", reg: "REG-0141" },
-  { name: "Elisangela Vital de Sousa", phone: "(21) 97166-4471", reg: "REG-0142" },
-  { name: "Reirziane Pereira dos Santos", phone: "(21) 98664-1921", reg: "REG-0143" },
-  { name: "Natália Jacinto Silva", phone: "(21) 98272-9537", reg: "REG-0144" },
-  { name: "Tainá Brandão dos Santos", phone: "(21) 99123-0546", reg: "REG-0145" },
+  { name: "Roberta Santiago da Silva Bernardo", phone: "(21) 98298-0650", reg: "REG-0037", done: false },
+  { name: "Eraldilene de Jesus Pereira", phone: "(21) 98583-3352", reg: "REG-0038", done: true },
+  { name: "Greice Kelly da Silva Braz de Souza", phone: "(21) 96548-7726", reg: "REG-0039", done: false },
+  { name: "Nádia Ferreira Grimaldi", phone: "(21) 98514-0627", reg: "REG-0040", done: false },
+  { name: "Francilene Santos da Cunha", phone: "(21) 96936-3671", reg: "REG-0041", done: false },
+  { name: "Daniele Cirino Ferreira", phone: "(21) 98221-5410", reg: "REG-0042", done: false },
+  { name: "Carla Pestana Villela", phone: "(21) 98328-4393", reg: "REG-0043", done: false },
+  { name: "Elenice Maria do Monte", phone: "(21) 96919-6259", reg: "REG-0044", done: false },
+  { name: "Andressa Maria Ferreira Barboza", phone: "(21) 96731-9396", reg: "REG-0045", done: true },
+  { name: "Raquel Cosma da Silva", phone: "(21) 98348-3102", reg: "REG-0046", done: true },
+  { name: "Letícia da Rocha Bezerra", phone: "(21) 99564-0761", reg: "REG-0047", done: true },
+  { name: "André Luiz da Silva", phone: "(21) 98241-2112", reg: "REG-0048", done: true },
+  { name: "Maria Daniela Neves da Costa", phone: "(21) 98160-9653", reg: "REG-0049", done: false },
+  { name: "Dijanira Gomes da Silva", phone: "(21) 98143-9648", reg: "REG-0050", done: false },
+  { name: "Ana Paula Oliveira Pereira", phone: "(21) 98018-4037", reg: "REG-0051", done: false },
+  { name: "Rafaela Pereira dos Santos", phone: "(21) 97996-7834", reg: "REG-0052", done: false },
+  { name: "Maria Clara Rocha Guimarães", phone: "(21) 96929-5330", reg: "REG-0053", done: false },
+  { name: "Mayara Oliveira", phone: "(21) 97977-1593", reg: "REG-0054", done: false },
+  { name: "Juliana Rodrigues", phone: "(21) 97929-8700", reg: "REG-0055", done: false },
+  { name: "Tassia Araujo Gitahy", phone: "(21) 99933-1230", reg: "REG-0056", done: false },
+  { name: "Adriane Damasceno Rodrigues", phone: "(21) 96980-2229", reg: "REG-0057", done: false },
+  { name: "Susana Santana Secco", phone: "(21) 95917-5529", reg: "REG-0058", done: false },
+  { name: "Alice Alonso", phone: "(21) 98029-7819", reg: "REG-0059", done: false },
+  { name: "Tatiane Araujo da Silva", phone: "(21) 98952-4263", reg: "REG-0060", done: false },
+  { name: "Karmina Soares Diniz", phone: "(21) 98621-9557", reg: "REG-0061", done: false },
+  { name: "Nathalia Aparecida da Silva", phone: "(21) 98287-3323", reg: "REG-0062", done: true },
+  { name: "Gleivania dos Santos Costa", phone: "(21) 99888-6743", reg: "REG-0063", done: false },
+  { name: "Lucas Gomes da Silva", phone: "(21) 98335-9707", reg: "REG-0064", done: false },
+  { name: "Sheila da Silva Bezerra", phone: "(21) 95953-6012", reg: "REG-0065", done: false },
+  { name: "Izabel Augusto", phone: "(21) 96661-9033", reg: "REG-0066", done: false },
+  { name: "Maria Clara", phone: "(21) 96017-7178", reg: "REG-0067", done: false },
+  { name: "Patrícia Ferreira", phone: "(21) 99708-1522", reg: "REG-0068", done: false },
+  { name: "Ana Brenda Dutra da Silva", phone: "(21) 98984-9339", reg: "REG-0069", done: false },
+  { name: "Naeli da Silva Abreu", phone: "(21) 95923-2724", reg: "REG-0070", done: false },
+  { name: "Elisangela Brandão Teles", phone: "(21) 98057-1337", reg: "REG-0071", done: true },
+  { name: "Ana Francisco Gomes", phone: "(21) 96554-2333", reg: "REG-0072", done: false },
+  { name: "Zuleica Melo Macedo", phone: "(21) 97993-8128", reg: "REG-0073", done: false },
+  { name: "Giselle Conceição da Silva", phone: "(21) 97004-7740", reg: "REG-0074", done: false },
+  { name: "Rosângela Maria de Jesus Araújo", phone: "(21) 96709-5962", reg: "REG-0075", done: true },
+  { name: "Taciane Carvalho", phone: "(21) 98722-4001", reg: "REG-0076", done: false },
+  { name: "Lorena Souza", phone: "(21) 97724-6129", reg: "REG-0077", done: true },
+  { name: "Maria Taynara Carvalho de Santana", phone: "(21) 97970-8663", reg: "REG-0078", done: false },
+  { name: "Fernanda Vieira", phone: "(21) 99843-6658", reg: "REG-0079", done: false },
+  { name: "Luana Oliveira dos Santos Cota", phone: "(21) 97348-4073", reg: "REG-0080", done: true },
+  { name: "Ingrid dos Santos Teles", phone: "(21) 96931-3835", reg: "REG-0081", done: true },
+  { name: "Leilane Inácio do Vale", phone: "(21) 98063-5059", reg: "REG-0082", done: true },
+  { name: "Gerlaine Silva Viana", phone: "(21) 98348-3102", reg: "REG-0083", done: true },
+  { name: "Carla de Almeida R Santos", phone: "(21) 99081-5673", reg: "REG-0084", done: true },
+  { name: "Antônia Alessamia Soares Freires", phone: "(21) 98866-7873", reg: "REG-0085", done: false },
+  { name: "Milena Eduarda da Silva", phone: "(81) 99970-7934", reg: "REG-0086", done: false },
+  { name: "Silvania Araújo Barbosa", phone: "(21) 98285-069", reg: "REG-0087", done: true },
+  { name: "Yasmim Ferreira Dias", phone: "(22) 98281-7544", reg: "REG-0088", done: true },
+  { name: "Diana Gleyse da Conceição Ferreira", phone: "(21) 96592-0908", reg: "REG-0089", done: false },
+  { name: "Andreza Ferreira Soares", phone: "(21) 97244-6151", reg: "REG-0090", done: false },
+  { name: "Aline Mesquita da Silva", phone: "(21) 97598-0792", reg: "REG-0091", done: false },
+  { name: "Ingrid Maciel", phone: "(21) 99083-4491", reg: "REG-0092", done: false },
+  { name: "Daniele Ferreira Soares", phone: "(21) 98398-5954", reg: "REG-0093", done: false },
+  { name: "Débora da Conceição Farias", phone: "(21) 99291-0364", reg: "REG-0094", done: false },
+  { name: "Cecília de Cassia Alves Faria", phone: "(21) 98559-9804", reg: "REG-0095", done: false },
+  { name: "Camile da Silva Souza", phone: "(21) 99774-9100", reg: "REG-0096", done: false },
+  { name: "Suellen Cristina Coutinho Pimentel", phone: "(21) 98158-8068", reg: "REG-0097", done: false },
+  { name: "Tatiana dos Santos Alves", phone: "(21) 99140-3784", reg: "REG-0098", done: false },
+  { name: "Erlânia Fernandes Jorge", phone: "(21) 98165-6782", reg: "REG-0099", done: false },
+  { name: "Antônia Mirlene Rodrigues Nascimento", phone: "(21) 96672-8630", reg: "REG-0100", done: true },
+  { name: "Evelyn de Oliveira Reis", phone: "(21) 99248-1469", reg: "REG-0101", done: false },
+  { name: "Isabella Andrade de Brito", phone: "(21) 98048-7381", reg: "REG-0102", done: false },
+  { name: "Elizete Mudesto", phone: "(21) 97519-3113", reg: "REG-0103", done: true },
+  { name: "Raimunda de Souza Nascimento", phone: "(21) 98176-3221", reg: "REG-0104", done: true },
+  { name: "Marcelo Henrique", phone: "(21) 99150-4196", reg: "REG-0105", done: true },
+  { name: "Flávia da Silva", phone: "(21) 99713-2775", reg: "REG-0106", done: true },
+  { name: "Patricia da Silva Brasiliano", phone: "(21) 97394-7025", reg: "REG-0107", done: true },
+  { name: "Aldirene Pereira da Silva", phone: "(21) 99566-4105", reg: "REG-0108", done: false },
+  { name: "Mercia de Fátima da Silva Lima", phone: "(21) 98256-6320", reg: "REG-0109", done: true },
+  { name: "Noadia Barbosa de Almeida", phone: "(21) 98181-7310", reg: "REG-0110", done: true },
+  { name: "Fernanda Moreth de Souza Siqueira", phone: "(21) 98666-6669", reg: "REG-0111", done: false },
+  { name: "Rayssa Moreth Siqueira Souza", phone: "(21) 96530-1744", reg: "REG-0112", done: false },
+  { name: "Alane do Nascimento Araújo", phone: "(21) 99483-8224", reg: "REG-0113", done: true },
+  { name: "Flávia Moreth Souza", phone: "(55) 21988-9775", reg: "REG-0114", done: false },
+  { name: "Renata Neris Braz Faria", phone: "(21) 96984-6036", reg: "REG-0115", done: false },
+  { name: "Luciana Marthias", phone: "(21) 98654-3033", reg: "REG-0116", done: false },
+  { name: "Irene Souza Feliciano", phone: "(21) 95848-4791", reg: "REG-0117", done: false },
+  { name: "Thais Alves", phone: "(21) 98165-0435", reg: "REG-0118", done: true },
+  { name: "Vittoria Mathias", phone: "(21) 99589-7210", reg: "REG-0119", done: true },
+  { name: "Suelen Souza Gomes", phone: "(21) 98666-9094", reg: "REG-0120", done: false },
+  { name: "Maria Patricia Rodrigues Damasceno", phone: "(21) 98062-5868", reg: "REG-0121", done: false },
+  { name: "Anny Caroliny Gomes Fonseca", phone: "(21) 98004-4349", reg: "REG-0122", done: true },
+  { name: "Jacielly R S Roque", phone: "(21) 99926-6868", reg: "REG-0123", done: false },
+  { name: "Kethelyn Pereira da Silva", phone: "(21) 95954-5062", reg: "REG-0124", done: false },
+  { name: "Maria Patricia Mesquita Moura", phone: "(21) 97953-2139", reg: "REG-0125", done: false },
+  { name: "Tamires Costa de Sousa", phone: "(21) 21988-4992", reg: "REG-0126", done: false },
+  { name: "Juliana Santanna Santos", phone: "(21) 96610-7740", reg: "REG-0127", done: false },
+  { name: "Ana Maria Magalhães Damasceno", phone: "(21) 96975-8599", reg: "REG-0128", done: false },
+  { name: "Isabela Cristina Pachu Gomes", phone: "(21) 96881-0915", reg: "REG-0129", done: true },
+  { name: "Thiago da Silva Araújo", phone: "(21) 98984-1639", reg: "REG-0130", done: false },
+  { name: "Jaqueline Silva dos Santos", phone: "(21) 99265-8539", reg: "REG-0131", done: false },
+  { name: "Luana da Silva Cirino", phone: "(21) 97148-0724", reg: "REG-0132", done: false },
+  { name: "Margarida Maria Alves da Silva", phone: "(21) 98483-4847", reg: "REG-0133", done: true },
+  { name: "Andreia Calixto Vieira", phone: "(21) 98740-9414", reg: "REG-0134", done: true },
+  { name: "Thailane Mathias Rodrigues", phone: "(21) 96584-6225", reg: "REG-0135", done: true },
+  { name: "Samara Cristina Batista Chaves", phone: "(21) 96546-9043", reg: "REG-0136", done: false },
+  { name: "Jaciana Saraiva Batista", phone: "(21) 97987-9880", reg: "REG-0137", done: true },
+  { name: "Karla Glenda da Silva Freire", phone: "(21) 98548-5300", reg: "REG-0138", done: false },
+  { name: "Maria Luzanete de Azevedo Silva", phone: "(21) 96626-9156", reg: "REG-0139", done: false },
+  { name: "Tatiana Medeiros de Souza", phone: "(21) 98751-2336", reg: "REG-0140", done: false },
+  { name: "Luciene Cardoso da Silva", phone: "(21) 97644-6549", reg: "REG-0141", done: true },
+  { name: "Elisangela Vital de Sousa", phone: "(21) 97166-4471", reg: "REG-0142", done: false },
+  { name: "Reirziane Pereira dos Santos", phone: "(21) 98664-1921", reg: "REG-0143", done: false },
+  { name: "Natália Jacinto Silva", phone: "(21) 98272-9537", reg: "REG-0144", done: false },
+  { name: "Tainá Brandão dos Santos", phone: "(21) 99123-0546", reg: "REG-0145", done: false },
 ];
 
-const DEFAULT_MSG = `Olá [Nome]!
-Você se cadastrou no *Evento de Páscoa 2026 - DISTRIBUIÇÃO DE 1 CAIXA DE BOMBOM para cada criança cadastrada!*
-Lembrando que será *AMANHÃ (sábado) ÀS 9 HORAS*, lá no Ministério Alpha, na Av. Engenheiro Souza Filho, 3555 (Ao lado da casa de festas Malibu). 
+const WAITLIST_CONTACTS = [
+  { name: "Nagila naysa Santos Cardoso", phone: "(21) 98195-7836", reg: "WAIT-001", type: "waitlist" },
+  { name: "Alessandra Feitosa Ribeiro", phone: "(21) 98386-5356", reg: "WAIT-002", type: "waitlist" },
+  { name: "Ana Claudia Rocha Pereira", phone: "(21) 99820-1651", reg: "WAIT-003", type: "waitlist" },
+  { name: "Lucas ivanildo Medeiros de souza", phone: "(21) 98751-2336", reg: "WAIT-004", type: "waitlist" },
+  { name: "Gabriel de Sousa Da Silva", phone: "(21) 98302-9888", reg: "WAIT-005", type: "waitlist" },
+  { name: "Gael de souza da silva", phone: "(21) 99306-2904", reg: "WAIT-006", type: "waitlist" },
+  { name: "Isadora Tavares Gomes da Silva", phone: "(21) 97254-6233", reg: "WAIT-007", type: "waitlist" },
+  { name: "Ana Júlia Letícia Caio", phone: "(21) 95947-6582", reg: "WAIT-008", type: "waitlist" },
+  { name: "Arthur Miguel Lima de Oliveira", phone: "(21) 99518-9573", reg: "WAIT-009", type: "waitlist" },
+  { name: "Joao Keven Andrade silva", phone: "(21) 96673-8552", reg: "WAIT-010", type: "waitlist" },
+  { name: "Kayke Andrade Silva", phone: "(21) 96673-8553", reg: "WAIT-011", type: "waitlist" },
+  { name: "Stefani Lucas Ferreira", phone: "(21) 97024-7652", reg: "WAIT-012", type: "waitlist" },
+  { name: "THAYLON MIGUEL DOS SANTOS XIMENES", phone: "(88) 99752-1839", reg: "WAIT-013", type: "waitlist" },
+  { name: "Elismare Estumano Fernandes", phone: "(21) 98107-1753", reg: "WAIT-014", type: "waitlist" },
+  { name: "Larissa Silva", phone: "(32) 98849-0382", reg: "WAIT-015", type: "waitlist" },
+  { name: "Thomas Rodrigues dos santos", phone: "(21) 96537-5871", reg: "WAIT-016", type: "waitlist" },
+  { name: "Yasmim cristian", phone: "(21) 98654-4772", reg: "WAIT-017", type: "waitlist" },
+  { name: "Thaylon Eduardo Silva oliveira", phone: "(21) 96955-8485", reg: "WAIT-018", type: "waitlist" },
+  { name: "Maria Eduarda Silva Oliveira", phone: "(21) 97530-5619", reg: "WAIT-019", type: "waitlist" },
+  { name: "Alice Vitoria galante batista", phone: "(21) 98846-7201", reg: "WAIT-020", type: "waitlist" },
+  { name: "Yuri da Silva Costa", phone: "(21) 95922-1301", reg: "WAIT-021", type: "waitlist" },
+  { name: "Auricelia Freitas Silva", phone: "(21) 98308-0263", reg: "WAIT-022", type: "waitlist" },
+  { name: "Heitor dos Santos Souza", phone: "(21) 98383-7119", reg: "WAIT-023", type: "waitlist" },
+  { name: "Juliana luiza da costa", phone: "(21) 97073-7983", reg: "WAIT-024", type: "waitlist" },
+  { name: "Maria eridan de Sousa Silva", phone: "(21) 99927-8659", reg: "WAIT-025", type: "waitlist" },
+  { name: "Kevellyn Davilla Arruda Rodrigues Lima", phone: "(55) 21996-6862", reg: "WAIT-026", type: "waitlist" },
+  { name: "Kevellyn Davilla Arruda Rodrigues Lima", phone: "(55) 21996-6862", reg: "WAIT-027", type: "waitlist" },
+  { name: "Cauã Gabriel e kelme da Silva Costa Gael", phone: "(21) 97180-3776", reg: "WAIT-028", type: "waitlist" },
+  { name: "Barbara Tayane ramos de lima", phone: "(83) 99811-7650", reg: "WAIT-029", type: "waitlist" },
+  { name: "Bianca Lucena dos Santos", phone: "(21) 98684-0685", reg: "WAIT-030", type: "waitlist" },
+  { name: "Theo junior souza silva", phone: "(21) 99406-501", reg: "WAIT-031", type: "waitlist" },
+  { name: "Theo junior souza silva", phone: "(21) 99406-503", reg: "WAIT-032", type: "waitlist" },
+  { name: "Ana Carolina Costa Alves", phone: "(21) 97417-3492", reg: "WAIT-033", type: "waitlist" },
+  { name: "Theo junior souza silva", phone: "(21) 99406-5301", reg: "WAIT-034", type: "waitlist" },
+  { name: "Carolyne de sousa pereira", phone: "(21) 96974-4730", reg: "WAIT-035", type: "waitlist" },
+  { name: "Esmeraldina Lopes Gomes", phone: "(21) 98368-3660", reg: "WAIT-036", type: "waitlist" },
+  { name: "Davi Guilherme, Alexandro, Levi,", phone: "(21) 96934-0339", reg: "WAIT-037", type: "waitlist" },
+  { name: "Laura Silva chagas da Silveira", phone: "(21) 98282-6992", reg: "WAIT-038", type: "waitlist" },
+  { name: "Melissa Alves de Souza Eurides", phone: "(21) 98179-8821", reg: "WAIT-039", type: "waitlist" },
+  { name: "Giovanna Alves de Souza Soares", phone: "(21) 98348-7130", reg: "WAIT-040", type: "waitlist" },
+  { name: "Laura Silva chagas da Silveira", phone: "(21) 99277-3449", reg: "WAIT-041", type: "waitlist" },
+  { name: "Maria gabrielly Belmiro de Souza", phone: "(21) 98015-2869", reg: "WAIT-042", type: "waitlist" },
+  { name: "Tainá Brandão dos Santos", phone: "(21) 99123-0546", reg: "WAIT-043", type: "waitlist" },
+  { name: "Beatriz Da Rocha Martins", phone: "(21) 98746-9312", reg: "WAIT-044", type: "waitlist" },
+  { name: "Sabrina Fernandes dos Santos", phone: "(21) 98026-4450", reg: "WAIT-045", type: "waitlist" },
+  { name: "Marcia da rocha viera", phone: "(21) 97994-6074", reg: "WAIT-046", type: "waitlist" },
+  { name: "Ingrid de Lima Oliveira Magalhães", phone: "(21) 96909-7459", reg: "WAIT-047", type: "waitlist" },
+  { name: "Maria Cecília Fernandes Medeiros", phone: "(21) 96555-8924", reg: "WAIT-048", type: "waitlist" },
+  { name: "Raiana Laudelino", phone: "(21) 97286-5472", reg: "WAIT-049", type: "waitlist" },
+  { name: "Maria Patrícia dos Santos", phone: "(21) 98584-1403", reg: "WAIT-050", type: "waitlist" },
+  { name: "Roberta Silva de Oliveira", phone: "(21) 98032-8546", reg: "WAIT-051", type: "waitlist" },
+  { name: "Enzo Moura Santos", phone: "(21) 98085-6612", reg: "WAIT-052", type: "waitlist" },
+  { name: "Maria Simone de Araujo", phone: "(21) 98217-6157", reg: "WAIT-053", type: "waitlist" },
+  { name: "Pietro de Araújo lima", phone: "(21) 98215-8551", reg: "WAIT-054", type: "waitlist" },
+  { name: "Pierre de Araujo Silva", phone: "(21) 96990-3397", reg: "WAIT-055", type: "waitlist" },
+  { name: "Maria Bruna Vieira de oliveira", phone: "(21) 99713-4837", reg: "WAIT-056", type: "waitlist" },
+  { name: "Gael ferreira de Sousa", phone: "(71) 98285-2273", reg: "WAIT-057", type: "waitlist" },
+  { name: "Deivison, Stephanie", phone: "(21) 97221-2779", reg: "WAIT-058", type: "waitlist" },
+  { name: "Marlucia Batista da Silva", phone: "(21) 99882-7430", reg: "WAIT-059", type: "waitlist" },
+  { name: "Davi Gabriel da Silva Nascimento", phone: "(21) 98275-3505", reg: "WAIT-060", type: "waitlist" },
+  { name: "Luiz Miguel Pereira da costa", phone: "(21) 97652-9953", reg: "WAIT-061", type: "waitlist" },
+  { name: "Manuella dos santos ximens", phone: "(21) 97718-4482", reg: "WAIT-062", type: "waitlist" },
+  { name: "Maria de Fátima Pereira Mendes de Morais", phone: "(21) 95907-9330", reg: "WAIT-063", type: "waitlist" },
+  { name: "Camila Ferreira", phone: "(21) 97296-5855", reg: "WAIT-064", type: "waitlist" },
+  { name: "Sabrina Silva", phone: "(21) 98391-0439", reg: "WAIT-065", type: "waitlist" },
+  { name: "Ariella Ferreira Gomes", phone: "(21) 96507-8843", reg: "WAIT-066", type: "waitlist" },
+  { name: "Alysson Henrique Leandro Silva", phone: "(21) 98705-7115", reg: "WAIT-067", type: "waitlist" },
+  { name: "Francisca Manoel de Souza Lopes", phone: "(55) 21998-7408", reg: "WAIT-068", type: "waitlist" },
+  { name: "Maria Vitória de Souza Lopes", phone: "(21) 99874-0843", reg: "WAIT-069", type: "waitlist" },
+  { name: "Ana Júlia Pereira de Medeiros", phone: "(21) 97951-4225", reg: "WAIT-070", type: "waitlist" },
+  { name: "Thamires aparecida dos Santos", phone: "(21) 99079-5877", reg: "WAIT-071", type: "waitlist" },
+  { name: "Ingrid aparecida augusto", phone: "(21) 98237-9710", reg: "WAIT-072", type: "waitlist" },
+  { name: "Riquelme da Silva Costa", phone: "(21) 98306-8715", reg: "WAIT-073", type: "waitlist" },
+  { name: "Theo Martins dos Santos", phone: "(21) 96629-2852", reg: "WAIT-074", type: "waitlist" },
+  { name: "Thomaz Martins da Silva", phone: "(21) 99587-5156", reg: "WAIT-075", type: "waitlist" },
+  { name: "Maria das dores goncalves da silva felix", phone: "(21) 97946-8426", reg: "WAIT-076", type: "waitlist" },
+  { name: "Arielly keyla da Silva Oliveira", phone: "(21) 97292-8123", reg: "WAIT-077", type: "waitlist" },
+  { name: "Glauciana do nascimento silva", phone: "(21) 99943-4345", reg: "WAIT-078", type: "waitlist" },
+  { name: "Ana clara cardozo bastos", phone: "(21) 96527-1745", reg: "WAIT-079", type: "waitlist" },
+  { name: "edyane gabriel dos santos", phone: "(21) 96772-5973", reg: "WAIT-080", type: "waitlist" },
+  { name: "Alessandra Ferreira Xavier", phone: "(88) 98197-8856", reg: "WAIT-081", type: "waitlist" },
+  { name: "Manuella Trindade de Souza", phone: "(21) 98781-7327", reg: "WAIT-082", type: "waitlist" },
+  { name: "Maysa Leal dos santos", phone: "(21) 98070-3103", reg: "WAIT-083", type: "waitlist" },
+  { name: "Yuri Zaqueu conceição Justino", phone: "(21) 95913-7246", reg: "WAIT-084", type: "waitlist" },
+  { name: "Luana dos santos Silva", phone: "(21) 95944-9014", reg: "WAIT-085", type: "waitlist" },
+  { name: "Jaine pereira nunes", phone: "(21) 96977-9241", reg: "WAIT-086", type: "waitlist" },
+  { name: "Francineide Maria Ribeiro da Silva", phone: "(21) 98338-3534", reg: "WAIT-087", type: "waitlist" },
+  { name: "Letícia da rocha bezerra", phone: "(21) 99564-0761", reg: "WAIT-088", type: "waitlist" },
+  { name: "André Luiz da Silva", phone: "(21) 98241-2112", reg: "WAIT-089", type: "waitlist" },
+  { name: "Thais Santos Alves", phone: "(21) 98165-0435", reg: "WAIT-090", type: "waitlist" },
+  { name: "Vanessa de lima", phone: "(21) 98859-1376", reg: "WAIT-091", type: "waitlist" },
+];
 
-*Lembre-se:* 📌
-1) Ao chegar, informe seu número de cadastro: [REG].
-2) As crianças só entram acompanhadas.
-3) Leve o documento que comprove a idade (certidão ou identidade).
 
-Não se atrase, contamos com a sua presença e a de seus filhos! 
-Até amanhã!`;
+const MSG_DONE = `Oi [Nome]!
+Muito obrigado por ter estado conosco na ação de Páscoa do Ministério Alpha no sábado passado!
 
-let currentMsg = DEFAULT_MSG;
+Queremos te convidar para um *CAFÉ DA MANHÃ* especial amanhã (domingo) para você e seus filhos, para dar as boas-vindas a você na nossa igreja.
+
+*AMANHÃ! Domingo, 12 de Abril*
+*Café da manhã das 9h às 10h*
+*Av. Engenheiro Souza, 3555* - Ao lado da casa de festas Malibu
+Em seguida, um culto especial para as famílias.
+
+Responda aqui se puder vir!`;
+
+const MSG_MISSED = `Oi [Nome]!
+Aqui é do Ministério Alpha. Sentimos sua falta na nossa ação de Páscoa no sábado passado!
+
+Queremos te convidar para um *CAFÉ DA MANHÃ* especial amanhã (domingo) para você e seus filhos, uma oportunidade para dar as boas-vindas a você e sua família à nossa igreja.
+
+*AMANHÃ! Domingo, 12 de Abril*
+*Café da manhã das 9h às 10h*
+*Av. Engenheiro Souza, 3555* - Ao lado da casa de festas Malibu
+Em seguida, um culto especial para as famílias.
+
+Será uma alegria te receber! Responda aqui se puder vir!`;
+
+const MSG_WAITLIST = `Oi [Nome]!
+Aqui é do Ministério Alpha. Vimos que você se interessou pela nossa ação de Páscoa e queremos muito te receber!
+
+Que tal começar com um *CAFÉ DA MANHÃ* amanhã (domingo)? É a nossa forma de dar as boas-vindas a você e sua família à nossa igreja.
+
+*AMANHÃ! Domingo, 12 de Abril*
+*Café da manhã das 9h às 10h*
+*Av. Engenheiro Souza, 3555* - Ao lado da casa de festas Malibu
+Em seguida, um culto especial para as famílias.
+
+Será uma alegria te receber! Responda aqui se puder vir!`;
+
+let currentMsgDone = MSG_DONE;
+let currentMsgMissed = MSG_MISSED;
+let currentMsgWait = MSG_WAITLIST;
+let currentSource = 'confirmed';
 const sent = new Set();
+let currentFilter = 'all';
+let currentTab = 'done';
+
+function getList() {
+  return currentSource === 'waitlist' ? WAITLIST_CONTACTS : CONTACTS;
+}
 
 function toWANumber(phone) {
   const d = phone.replace(/\D/g, '');
@@ -245,13 +407,16 @@ function initials(name) {
 }
 
 function buildMsg(c) {
-  return currentMsg
+  let template;
+  if (c.type === 'waitlist') template = currentMsgWait;
+  else template = c.done ? currentMsgDone : currentMsgMissed;
+  return template
     .replace('[Nome]', c.name.split(' ')[0])
     .replace('[REG]', c.reg);
 }
 
 function openWA(reg) {
-  const c = CONTACTS.find(x => x.reg === reg);
+  const c = [...CONTACTS, ...WAITLIST_CONTACTS].find(x => x.reg === reg);
   if (!c) return;
   const num = toWANumber(c.phone);
   const text = encodeURIComponent(buildMsg(c));
@@ -265,22 +430,33 @@ function openWA(reg) {
 }
 
 function updateStats() {
-  document.getElementById('s-total').textContent = CONTACTS.length;
-  document.getElementById('s-sent').textContent = sent.size;
-  document.getElementById('s-pending').textContent = CONTACTS.length - sent.size;
+  const source = getList();
+  document.getElementById('s-total').textContent = source.length;
+  const sentInSource = source.filter(c => sent.has(c.reg)).length;
+  document.getElementById('s-sent').textContent = sentInSource;
+  document.getElementById('s-pending').textContent = source.length - sentInSource;
+  const cc = document.getElementById('src-count-confirmed');
+  const cw = document.getElementById('src-count-waitlist');
+  if (cc) cc.textContent = CONTACTS.length;
+  if (cw) cw.textContent = WAITLIST_CONTACTS.length;
 }
 
 function renderList() {
   const q = document.getElementById('search').value.toLowerCase();
-  const filtered = CONTACTS.filter(c =>
+  const source = getList();
+  const filterBar = document.querySelector('.filter-tabs');
+  if (filterBar) filterBar.style.display = currentSource === 'waitlist' ? 'none' : 'flex';
+  let filtered = source.filter(c =>
     c.name.toLowerCase().includes(q) ||
     c.phone.includes(q) ||
     c.reg.toLowerCase().includes(q)
   );
+  if (currentSource === 'confirmed' && currentFilter === 'came')   filtered = filtered.filter(c => c.done);
+  if (currentSource === 'confirmed' && currentFilter === 'missed') filtered = filtered.filter(c => !c.done);
 
-  const warnings = CONTACTS.filter(c => isWarn(c.phone));
+  const warnings = source.filter(c => isWarn(c.phone));
   const wbar = document.getElementById('warn-bar');
-  if (warnings.length && !q) {
+  if (warnings.length && !q && currentFilter === 'all') {
     wbar.style.display = 'block';
     wbar.textContent = `⚠ ${warnings.length} número(s) com formato suspeito: ${warnings.map(c => c.reg).join(', ')}`;
   } else {
@@ -294,14 +470,20 @@ function renderList() {
     return;
   }
 
-  list.innerHTML = filtered.map(c => {
+  list.innerHTML = filtered.map((c, i) => {
     const isSent = sent.has(c.reg);
     const warn = isWarn(c.phone);
+    let badge;
+    if (c.type === 'waitlist') badge = '<span class="badge-status badge-wait">Espera</span>';
+    else badge = c.done
+      ? '<span class="badge-status badge-came">✅ veio</span>'
+      : '<span class="badge-status badge-missed">⏳ faltou</span>';
     return `
-      <div class="card${isSent ? ' sent' : ''}${warn ? ' warn-num' : ''}" id="card-${c.reg}">
+      <div class="card${isSent ? ' sent' : ''}${c.done ? ' came' : ''}${warn ? ' warn-num' : ''}" id="card-${c.reg}">
+        <div class="row-num">${i + 1}</div>
         <div class="avatar">${initials(c.name)}</div>
         <div class="info">
-          <div class="info-name">${c.name}${warn ? '<span class="warn-tag">⚠</span>' : ''}</div>
+          <div class="info-name">${c.name}${badge}${warn ? '<span class="warn-tag">⚠</span>' : ''}</div>
           <div class="info-sub">${c.phone} · ${c.reg}</div>
         </div>
         <button class="btn-wa${isSent ? ' done' : ''}" id="btn-${c.reg}" onclick="openWA('${c.reg}')">
@@ -311,13 +493,49 @@ function renderList() {
   }).join('');
 
   document.getElementById('footer-count').textContent =
-    `${filtered.length} de ${CONTACTS.length} contatos`;
+    `${filtered.length} de ${source.length} contatos`;
+}
+
+function setSource(s) {
+  currentSource = s;
+  document.getElementById('src-confirmed').classList.toggle('active', s === 'confirmed');
+  document.getElementById('src-waitlist').classList.toggle('active',  s === 'waitlist');
+  // Reset filtro came/missed ao trocar de fonte
+  currentFilter = 'all';
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  const ftAll = document.getElementById('ft-all'); if (ftAll) ftAll.classList.add('active');
+  renderList();
+  updateStats();
+}
+
+function setFilter(f) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('ft-' + f).classList.add('active');
+  renderList();
 }
 
 function openModal() {
-  document.getElementById('msg-editor').value = currentMsg;
+  currentTab = 'done';
+  document.getElementById('tab-done').classList.add('active');
+  document.getElementById('tab-missed').classList.remove('active');
+  document.getElementById('tab-wait').classList.remove('active');
+  document.getElementById('msg-editor').value = currentMsgDone;
   updatePreview();
   document.getElementById('modal-bg').classList.add('open');
+}
+
+function switchTab(tab) {
+  if (currentTab === 'done')   currentMsgDone   = document.getElementById('msg-editor').value;
+  if (currentTab === 'missed') currentMsgMissed = document.getElementById('msg-editor').value;
+  if (currentTab === 'wait')   currentMsgWait   = document.getElementById('msg-editor').value;
+  currentTab = tab;
+  document.getElementById('tab-done').classList.toggle('active',   tab === 'done');
+  document.getElementById('tab-missed').classList.toggle('active', tab === 'missed');
+  document.getElementById('tab-wait').classList.toggle('active',   tab === 'wait');
+  const val = tab === 'done' ? currentMsgDone : tab === 'missed' ? currentMsgMissed : currentMsgWait;
+  document.getElementById('msg-editor').value = val;
+  updatePreview();
 }
 
 function closeModal() {
@@ -330,13 +548,19 @@ function bgClick(e) {
 
 function updatePreview() {
   const val = document.getElementById('msg-editor').value;
-  const sample = CONTACTS[0];
+  let sample;
+  if (currentTab === 'wait')   sample = WAITLIST_CONTACTS[0] || CONTACTS[0];
+  else if (currentTab === 'done') sample = CONTACTS.find(c => c.done) || CONTACTS[0];
+  else                         sample = CONTACTS.find(c => !c.done) || CONTACTS[0];
   document.getElementById('msg-preview').textContent =
     val.replace('[Nome]', sample.name.split(' ')[0]).replace('[REG]', sample.reg);
 }
 
 function saveMsg() {
-  currentMsg = document.getElementById('msg-editor').value;
+  const val = document.getElementById('msg-editor').value;
+  if (currentTab === 'done')   currentMsgDone   = val;
+  if (currentTab === 'missed') currentMsgMissed = val;
+  if (currentTab === 'wait')   currentMsgWait   = val;
   closeModal();
 }
 
