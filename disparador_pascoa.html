@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Disparador Páscoa 2026</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; font-size: 15px; }
+
+  header { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 14px 16px; position: sticky; top: 0; z-index: 10; }
+  header h1 { font-size: 17px; font-weight: 600; }
+  header p { font-size: 13px; color: #666; margin-top: 2px; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 12px 16px; background: #fff; border-bottom: 1px solid #e5e5e5; }
+  .stat { background: #f5f5f5; border-radius: 10px; padding: 10px 8px; text-align: center; }
+  .stat-val { font-size: 22px; font-weight: 600; }
+  .stat-val.green { color: #16a34a; }
+  .stat-val.orange { color: #ea580c; }
+  .stat-label { font-size: 11px; color: #666; margin-top: 2px; }
+
+  .search-wrap { padding: 10px 16px; background: #fff; border-bottom: 1px solid #e5e5e5; }
+  .search-wrap input { width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 10px 14px; font-size: 15px; background: #f9f9f9; outline: none; }
+  .search-wrap input:focus { border-color: #4f46e5; background: #fff; }
+
+  .warn-bar { margin: 10px 16px 0; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 12px; font-size: 13px; color: #9a3412; }
+
+  .list { padding: 10px 16px 80px; }
+
+  .card { background: #fff; border-radius: 12px; border: 1px solid #e5e5e5; padding: 12px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 12px; transition: background 0.15s; }
+  .card.sent { background: #f0fdf4; border-color: #bbf7d0; }
+  .card.warn-num { border-color: #fed7aa; }
+
+  .avatar { width: 38px; height: 38px; border-radius: 50%; background: #e0e7ff; color: #4338ca; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .card.sent .avatar { background: #dcfce7; color: #16a34a; }
+
+  .info { flex: 1; min-width: 0; }
+  .info-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .info-sub { font-size: 12px; color: #777; margin-top: 1px; }
+  .warn-tag { font-size: 11px; color: #ea580c; margin-left: 5px; }
+
+  .btn-wa { background: #25d366; color: #fff; border: none; border-radius: 20px; padding: 8px 16px; font-size: 13px; font-weight: 500; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
+  .btn-wa.done { background: #d1fae5; color: #065f46; }
+
+  .empty { text-align: center; color: #999; font-size: 14px; padding: 40px 0; }
+
+  .footer-count { text-align: center; font-size: 12px; color: #aaa; padding: 8px 0 4px; }
+
+  .fab { position: fixed; bottom: 20px; right: 16px; background: #4f46e5; color: #fff; border: none; border-radius: 28px; padding: 13px 20px; font-size: 14px; font-weight: 500; cursor: pointer; box-shadow: 0 4px 12px rgba(79,70,229,0.35); z-index: 20; }
+  .fab:active { transform: scale(0.97); }
+
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 30; align-items: flex-end; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 20px 20px 0 0; padding: 20px 16px 34px; width: 100%; max-height: 85vh; overflow-y: auto; }
+  .modal h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .modal p { font-size: 13px; color: #666; margin-bottom: 12px; }
+  .modal textarea { width: 100%; border: 1px solid #ddd; border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: inherit; resize: vertical; outline: none; line-height: 1.5; }
+  .modal textarea:focus { border-color: #4f46e5; }
+  .modal-preview { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 12px; margin-top: 12px; font-size: 13px; line-height: 1.6; color: #14532d; white-space: pre-wrap; word-break: break-word; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .modal-actions button { flex: 1; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; }
+  .btn-cancel { background: #f3f4f6; color: #374151; }
+  .btn-save { background: #4f46e5; color: #fff; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Páscoa 2026 - Disparador</h1>
+  <p id="header-sub">Ministério Alpha</p>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="stat-val" id="s-total">0</div><div class="stat-label">total</div></div>
+  <div class="stat"><div class="stat-val green" id="s-sent">0</div><div class="stat-label">abertos</div></div>
+  <div class="stat"><div class="stat-val orange" id="s-pending">0</div><div class="stat-label">pendentes</div></div>
+</div>
+
+<div class="search-wrap">
+  <input type="search" id="search" placeholder="Buscar por nome, telefone ou REG..." oninput="renderList()" />
+</div>
+
+<div id="warn-bar" class="warn-bar" style="display:none"></div>
+
+<div class="list" id="list"></div>
+<div class="footer-count" id="footer-count"></div>
+
+<button class="fab" onclick="openModal()">Editar mensagem</button>
+
+<div class="modal-bg" id="modal-bg" onclick="bgClick(event)">
+  <div class="modal">
+    <h2>Mensagem</h2>
+    <p>Use <code>[Nome]</code> para o primeiro nome e <code>[REG]</code> para o número de cadastro.</p>
+    <textarea id="msg-editor" rows="9" oninput="updatePreview()"></textarea>
+    <div class="modal-preview" id="msg-preview"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">Cancelar</button>
+      <button class="btn-save" onclick="saveMsg()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CONTACTS = [
+  { name: "Roberta Santiago da Silva Bernardo", phone: "(21) 98298-0650", reg: "REG-0037" },
+  { name: "Eraldilene de Jesus Pereira", phone: "(21) 98583-3352", reg: "REG-0038" },
+  { name: "Greice Kelly da Silva Braz de Souza", phone: "(21) 96548-7726", reg: "REG-0039" },
+  { name: "Nádia Ferreira Grimaldi", phone: "(21) 98514-0627", reg: "REG-0040" },
+  { name: "Francilene Santos da Cunha", phone: "(21) 96936-3671", reg: "REG-0041" },
+  { name: "Daniele Cirino Ferreira", phone: "(21) 98221-5410", reg: "REG-0042" },
+  { name: "Carla Pestana Villela", phone: "(21) 98328-4393", reg: "REG-0043" },
+  { name: "Elenice Maria do Monte", phone: "(21) 96919-6259", reg: "REG-0044" },
+  { name: "Andressa Maria Ferreira Barboza", phone: "(21) 96731-9396", reg: "REG-0045" },
+  { name: "Raquel Cosma da Silva", phone: "(21) 98348-3102", reg: "REG-0046" },
+  { name: "Letícia da Rocha Bezerra", phone: "(21) 99564-0761", reg: "REG-0047" },
+  { name: "André Luiz da Silva", phone: "(21) 98241-2112", reg: "REG-0048" },
+  { name: "Maria Daniela Neves da Costa", phone: "(21) 98160-9653", reg: "REG-0049" },
+  { name: "Dijanira Gomes da Silva", phone: "(21) 98143-9648", reg: "REG-0050" },
+  { name: "Ana Paula Oliveira Pereira", phone: "(21) 98018-4037", reg: "REG-0051" },
+  { name: "Rafaela Pereira dos Santos", phone: "(21) 97996-7834", reg: "REG-0052" },
+  { name: "Maria Clara Rocha Guimarães", phone: "(21) 96929-5330", reg: "REG-0053" },
+  { name: "Mayara Oliveira", phone: "(21) 97977-1593", reg: "REG-0054" },
+  { name: "Juliana Rodrigues", phone: "(21) 97929-8700", reg: "REG-0055" },
+  { name: "Tassia Araujo Gitahy", phone: "(21) 99933-1230", reg: "REG-0056" },
+  { name: "Adriane Damasceno Rodrigues", phone: "(21) 96980-2229", reg: "REG-0057" },
+  { name: "Susana Santana Secco", phone: "(21) 95917-5529", reg: "REG-0058" },
+  { name: "Alice Alonso", phone: "(21) 98029-7819", reg: "REG-0059" },
+  { name: "Tatiane Araujo da Silva", phone: "(21) 98952-4263", reg: "REG-0060" },
+  { name: "Karmina Soares Diniz", phone: "(21) 98621-9557", reg: "REG-0061" },
+  { name: "Nathalia Aparecida da Silva", phone: "(21) 98287-3323", reg: "REG-0062" },
+  { name: "Gleivania dos Santos Costa", phone: "(21) 99888-6743", reg: "REG-0063" },
+  { name: "Lucas Gomes da Silva", phone: "(21) 98335-9707", reg: "REG-0064" },
+  { name: "Sheila da Silva Bezerra", phone: "(21) 95953-6012", reg: "REG-0065" },
+  { name: "Izabel Augusto", phone: "(21) 96661-9033", reg: "REG-0066" },
+  { name: "Maria Clara", phone: "(21) 96017-7178", reg: "REG-0067" },
+  { name: "Patrícia Ferreira", phone: "(21) 99708-1522", reg: "REG-0068" },
+  { name: "Ana Brenda Dutra da Silva", phone: "(21) 98984-9339", reg: "REG-0069" },
+  { name: "Naeli da Silva Abreu", phone: "(21) 95923-2724", reg: "REG-0070" },
+  { name: "Elisangela Brandão Teles", phone: "(21) 98057-1337", reg: "REG-0071" },
+  { name: "Ana Francisco Gomes", phone: "(21) 96554-2333", reg: "REG-0072" },
+  { name: "Zuleica Melo Macedo", phone: "(21) 97993-8128", reg: "REG-0073" },
+  { name: "Giselle Conceição da Silva", phone: "(21) 97004-7740", reg: "REG-0074" },
+  { name: "Rosângela Maria de Jesus Araújo", phone: "(21) 96709-5962", reg: "REG-0075" },
+  { name: "Taciane Carvalho", phone: "(21) 98722-4001", reg: "REG-0076" },
+  { name: "Lorena Souza", phone: "(21) 97724-6129", reg: "REG-0077" },
+  { name: "Maria Taynara Carvalho de Santana", phone: "(21) 97970-8663", reg: "REG-0078" },
+  { name: "Fernanda Vieira", phone: "(21) 99843-6658", reg: "REG-0079" },
+  { name: "Luana Oliveira dos Santos Cota", phone: "(21) 97348-4073", reg: "REG-0080" },
+  { name: "Ingrid dos Santos Teles", phone: "(21) 96931-3835", reg: "REG-0081" },
+  { name: "Leilane Inácio do Vale", phone: "(21) 98063-5059", reg: "REG-0082" },
+  { name: "Gerlaine Silva Viana", phone: "(21) 98348-3102", reg: "REG-0083" },
+  { name: "Carla de Almeida R Santos", phone: "(21) 99081-5673", reg: "REG-0084" },
+  { name: "Antônia Alessamia Soares Freires", phone: "(21) 98866-7873", reg: "REG-0085" },
+  { name: "Milena Eduarda da Silva", phone: "(81) 99970-7934", reg: "REG-0086" },
+  { name: "Silvania Araújo Barbosa", phone: "(21) 98285-069", reg: "REG-0087" },
+  { name: "Yasmim Ferreira Dias", phone: "(22) 98281-7544", reg: "REG-0088" },
+  { name: "Diana Gleyse da Conceição Ferreira", phone: "(21) 96592-0908", reg: "REG-0089" },
+  { name: "Andreza Ferreira Soares", phone: "(21) 97244-6151", reg: "REG-0090" },
+  { name: "Aline Mesquita da Silva", phone: "(21) 97598-0792", reg: "REG-0091" },
+  { name: "Ingrid Maciel", phone: "(21) 99083-4491", reg: "REG-0092" },
+  { name: "Daniele Ferreira Soares", phone: "(21) 98398-5954", reg: "REG-0093" },
+  { name: "Débora da Conceição Farias", phone: "(21) 99291-0364", reg: "REG-0094" },
+  { name: "Cecília de Cassia Alves Faria", phone: "(21) 98559-9804", reg: "REG-0095" },
+  { name: "Camile da Silva Souza", phone: "(21) 99774-9100", reg: "REG-0096" },
+  { name: "Suellen Cristina Coutinho Pimentel", phone: "(21) 98158-8068", reg: "REG-0097" },
+  { name: "Tatiana dos Santos Alves", phone: "(21) 99140-3784", reg: "REG-0098" },
+  { name: "Erlânia Fernandes Jorge", phone: "(21) 98165-6782", reg: "REG-0099" },
+  { name: "Antônia Mirlene Rodrigues Nascimento", phone: "(21) 96672-8630", reg: "REG-0100" },
+  { name: "Evelyn de Oliveira Reis", phone: "(21) 99248-1469", reg: "REG-0101" },
+  { name: "Isabella Andrade de Brito", phone: "(21) 98048-7381", reg: "REG-0102" },
+  { name: "Elizete Mudesto", phone: "(21) 97519-3113", reg: "REG-0103" },
+  { name: "Raimunda de Souza Nascimento", phone: "(21) 98176-3221", reg: "REG-0104" },
+  { name: "Marcelo Henrique", phone: "(21) 99150-4196", reg: "REG-0105" },
+  { name: "Flávia da Silva", phone: "(21) 99713-2775", reg: "REG-0106" },
+  { name: "Patricia da Silva Brasiliano", phone: "(21) 97394-7025", reg: "REG-0107" },
+  { name: "Aldirene Pereira da Silva", phone: "(21) 99566-4105", reg: "REG-0108" },
+  { name: "Mercia de Fátima da Silva Lima", phone: "(21) 98256-6320", reg: "REG-0109" },
+  { name: "Noadia Barbosa de Almeida", phone: "(21) 98181-7310", reg: "REG-0110" },
+  { name: "Fernanda Moreth de Souza Siqueira", phone: "(21) 98666-6669", reg: "REG-0111" },
+  { name: "Rayssa Moreth Siqueira Souza", phone: "(21) 96530-1744", reg: "REG-0112" },
+  { name: "Alane do Nascimento Araújo", phone: "(21) 99483-8224", reg: "REG-0113" },
+  { name: "Flávia Moreth Souza", phone: "(55) 21988-9775", reg: "REG-0114" },
+  { name: "Renata Neris Braz Faria", phone: "(21) 96984-6036", reg: "REG-0115" },
+  { name: "Luciana Marthias", phone: "(21) 98654-3033", reg: "REG-0116" },
+  { name: "Irene Souza Feliciano", phone: "(21) 95848-4791", reg: "REG-0117" },
+  { name: "Thais Alves", phone: "(21) 98165-0435", reg: "REG-0118" },
+  { name: "Vittoria Mathias", phone: "(21) 99589-7210", reg: "REG-0119" },
+  { name: "Suelen Souza Gomes", phone: "(21) 98666-9094", reg: "REG-0120" },
+  { name: "Maria Patricia Rodrigues Damasceno", phone: "(21) 98062-5868", reg: "REG-0121" },
+  { name: "Anny Caroliny Gomes Fonseca", phone: "(21) 98004-4349", reg: "REG-0122" },
+  { name: "Jacielly R S Roque", phone: "(21) 99926-6868", reg: "REG-0123" },
+  { name: "Kethelyn Pereira da Silva", phone: "(21) 95954-5062", reg: "REG-0124" },
+  { name: "Maria Patricia Mesquita Moura", phone: "(21) 97953-2139", reg: "REG-0125" },
+  { name: "Tamires Costa de Sousa", phone: "(21) 21988-4992", reg: "REG-0126" },
+  { name: "Juliana Santanna Santos", phone: "(21) 96610-7740", reg: "REG-0127" },
+  { name: "Ana Maria Magalhães Damasceno", phone: "(21) 96975-8599", reg: "REG-0128" },
+  { name: "Isabela Cristina Pachu Gomes", phone: "(21) 96881-0915", reg: "REG-0129" },
+  { name: "Thiago da Silva Araújo", phone: "(21) 98984-1639", reg: "REG-0130" },
+  { name: "Jaqueline Silva dos Santos", phone: "(21) 99265-8539", reg: "REG-0131" },
+  { name: "Luana da Silva Cirino", phone: "(21) 97148-0724", reg: "REG-0132" },
+  { name: "Margarida Maria Alves da Silva", phone: "(21) 98483-4847", reg: "REG-0133" },
+  { name: "Andreia Calixto Vieira", phone: "(21) 98740-9414", reg: "REG-0134" },
+  { name: "Thailane Mathias Rodrigues", phone: "(21) 96584-6225", reg: "REG-0135" },
+  { name: "Samara Cristina Batista Chaves", phone: "(21) 96546-9043", reg: "REG-0136" },
+  { name: "Jaciana Saraiva Batista", phone: "(21) 97987-9880", reg: "REG-0137" },
+  { name: "Karla Glenda da Silva Freire", phone: "(21) 98548-5300", reg: "REG-0138" },
+  { name: "Maria Luzanete de Azevedo Silva", phone: "(21) 96626-9156", reg: "REG-0139" },
+  { name: "Tatiana Medeiros de Souza", phone: "(21) 98751-2336", reg: "REG-0140" },
+  { name: "Luciene Cardoso da Silva", phone: "(21) 97644-6549", reg: "REG-0141" },
+  { name: "Elisangela Vital de Sousa", phone: "(21) 97166-4471", reg: "REG-0142" },
+  { name: "Reirziane Pereira dos Santos", phone: "(21) 98664-1921", reg: "REG-0143" },
+  { name: "Natália Jacinto Silva", phone: "(21) 98272-9537", reg: "REG-0144" },
+  { name: "Tainá Brandão dos Santos", phone: "(21) 99123-0546", reg: "REG-0145" },
+];
+
+const DEFAULT_MSG = `Olá [Nome]!
+Você se cadastrou no *Evento de Páscoa 2026 - DISTRIBUIÇÃO DE 1 CAIXA DE BOMBOM para cada criança cadastrada!*
+Lembrando que será *AMANHÃ (sábado) ÀS 9 HORAS*, lá no Ministério Alpha, na Av. Engenheiro Souza Filho, 3555 (Ao lado da casa de festas Malibu). 
+
+*Lembre-se:* 📌
+1) Ao chegar, informe seu número de cadastro: [REG].
+2) As crianças só entram acompanhadas.
+3) Leve o documento que comprove a idade (certidão ou identidade).
+
+Não se atrase, contamos com a sua presença e a de seus filhos! 
+Até amanhã!`;
+
+let currentMsg = DEFAULT_MSG;
+const sent = new Set();
+
+function toWANumber(phone) {
+  const d = phone.replace(/\D/g, '');
+  if (d.startsWith('55')) return d;
+  return '55' + d;
+}
+
+function isWarn(phone) {
+  const d = phone.replace(/\D/g, '');
+  if (d.startsWith('55')) return d.slice(2).length < 10;
+  return d.length < 10 || d.length > 11;
+}
+
+function initials(name) {
+  return name.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase();
+}
+
+function buildMsg(c) {
+  return currentMsg
+    .replace('[Nome]', c.name.split(' ')[0])
+    .replace('[REG]', c.reg);
+}
+
+function openWA(reg) {
+  const c = CONTACTS.find(x => x.reg === reg);
+  if (!c) return;
+  const num = toWANumber(c.phone);
+  const text = encodeURIComponent(buildMsg(c));
+  window.open(`https://wa.me/${num}?text=${text}`, '_blank');
+  sent.add(reg);
+  updateStats();
+  const btn = document.getElementById('btn-' + reg);
+  const card = document.getElementById('card-' + reg);
+  if (btn) { btn.textContent = 'Aberto'; btn.classList.add('done'); }
+  if (card) card.classList.add('sent');
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent = CONTACTS.length;
+  document.getElementById('s-sent').textContent = sent.size;
+  document.getElementById('s-pending').textContent = CONTACTS.length - sent.size;
+}
+
+function renderList() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const filtered = CONTACTS.filter(c =>
+    c.name.toLowerCase().includes(q) ||
+    c.phone.includes(q) ||
+    c.reg.toLowerCase().includes(q)
+  );
+
+  const warnings = CONTACTS.filter(c => isWarn(c.phone));
+  const wbar = document.getElementById('warn-bar');
+  if (warnings.length && !q) {
+    wbar.style.display = 'block';
+    wbar.textContent = `⚠ ${warnings.length} número(s) com formato suspeito: ${warnings.map(c => c.reg).join(', ')}`;
+  } else {
+    wbar.style.display = 'none';
+  }
+
+  const list = document.getElementById('list');
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty">Nenhum contato encontrado.</div>';
+    document.getElementById('footer-count').textContent = '';
+    return;
+  }
+
+  list.innerHTML = filtered.map(c => {
+    const isSent = sent.has(c.reg);
+    const warn = isWarn(c.phone);
+    return `
+      <div class="card${isSent ? ' sent' : ''}${warn ? ' warn-num' : ''}" id="card-${c.reg}">
+        <div class="avatar">${initials(c.name)}</div>
+        <div class="info">
+          <div class="info-name">${c.name}${warn ? '<span class="warn-tag">⚠</span>' : ''}</div>
+          <div class="info-sub">${c.phone} · ${c.reg}</div>
+        </div>
+        <button class="btn-wa${isSent ? ' done' : ''}" id="btn-${c.reg}" onclick="openWA('${c.reg}')">
+          ${isSent ? 'Aberto' : 'Enviar'}
+        </button>
+      </div>`;
+  }).join('');
+
+  document.getElementById('footer-count').textContent =
+    `${filtered.length} de ${CONTACTS.length} contatos`;
+}
+
+function openModal() {
+  document.getElementById('msg-editor').value = currentMsg;
+  updatePreview();
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal-bg').classList.remove('open');
+}
+
+function bgClick(e) {
+  if (e.target === document.getElementById('modal-bg')) closeModal();
+}
+
+function updatePreview() {
+  const val = document.getElementById('msg-editor').value;
+  const sample = CONTACTS[0];
+  document.getElementById('msg-preview').textContent =
+    val.replace('[Nome]', sample.name.split(' ')[0]).replace('[REG]', sample.reg);
+}
+
+function saveMsg() {
+  currentMsg = document.getElementById('msg-editor').value;
+  closeModal();
+}
+
+updateStats();
+renderList();
+</script>
+</body>
+</html>
